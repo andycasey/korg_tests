@@ -1,0 +1,24 @@
+synth
+terminal '{terminal}'
+standard_out '{standard_out}'
+summary_out '{summary_out}'
+model_in '{model_in}'
+lines_in '{lines_in}'
+atmosphere {atmosphere_flag:.0f}
+molecules {molecules_flag:.0f}
+trudamp {trudamp_flag:.0f}
+lines {lines_flag:.0f}
+flux/int {flux_int_flag:.0f}
+damping {damping_flag:.0f}
+units {units_flag:.0f}
+opacit {opacit:.0f}
+iraf 0
+obspectrum 0
+plot 0
+freeform 0
+strong 0
+scat {scat_flag:.0f}
+abundances {abundances_formatted}
+isotopes {isotopes_formatted}
+synlimits
+{wavelength_start:.2f} {wavelength_end:.2f} {wavelength_delta:.2f} {opacity_contribution:.2f}
