@@ -1,2 +1,2 @@
 from .transitions import Transitions
-from .moog import *
+from . import (moog, vald)

@@ -18,11 +18,11 @@ def read_moog(path):
         lines = fp.readlines()
     
     data = OrderedDict([
-        ("wavelength", []),
-        ("species", []),
-        ("excitation_potential", []),
+        ("lambda", []),
+        ("species_as_float", []),
+        ("excitation_potential_lower", []),
         ("loggf", []),
-        ("vanderwaals_damping", []),
+        ("vanderwaals_damping_constant", []),
         ("dissociation_energy", []),
         ("comment", [])
     ])
@@ -33,7 +33,7 @@ def read_moog(path):
             continue
 
         try:
-            wavelength, species, ep, loggf = map(float, s[:4])
+            lambda_, species, ep, loggf = map(float, s[:4])
         except:
             if i == 1:
                 continue
@@ -50,11 +50,11 @@ def read_moog(path):
                     None
                 comment = line[50:].strip()
                 
-        data["wavelength"].append(wavelength)
-        data["species"].append(species)
-        data["excitation_potential"].append(ep)
+        data["lambda"].append(lambda_)
+        data["species_as_float"].append(species)
+        data["excitation_potential_lower"].append(ep)
         data["loggf"].append(loggf)
-        data["vanderwaals_damping"].append(damping)
+        data["vanderwaals_damping_constant"].append(damping)
         data["dissociation_energy"].append(dissoc)
         data["comment"].append(comment)
 
@@ -79,10 +79,28 @@ def write_moog(transitions, path):
         f.write("\n")
 
         for line in transitions:
-            C6 = space if np.ma.is_masked(line['vanderwaals_damping']) or np.isnan(line['vanderwaals_damping']) else "{:10.3f}".format(line['vanderwaals_damping'])
-            D0 = space if np.ma.is_masked(line['dissociation_energy']) or np.isnan(line['dissociation_energy']) else "{:10.3}".format(line['dissociation_energy'])
-            comment = '' if np.ma.is_masked(line['comment']) else line['comment']
-            f.write(fmt.format(line['wavelength'],line['species'],line['excitation_potential'],line['loggf'],C6,D0,space,line['comment'])+"\n")
+            C6 = space if np.ma.is_masked(line['vanderwaals_damping_constant']) or np.isnan(line['vanderwaals_damping_constant']) else "{:10.3f}".format(line['vanderwaals_damping_constant'])
+            try:
+                D0 = line["dissociation_energy"]
+            except:
+                D0 = np.nan
+            D0 = space if np.ma.is_masked(D0) or np.isnan(D0) else "{:10.3}".format(D0)
+            try:
+                comment = '' if np.ma.is_masked(line['comment']) else line['comment']
+            except:
+                comment = ""
+            f.write(
+                fmt.format(
+                    line['lambda'],
+                    line['species_as_float'],
+                    line['excitation_potential_lower'],
+                    line['loggf'],
+                    C6,
+                    D0,
+                    space,
+                    comment
+                ) + "\n"
+            )
 
     return None
 
