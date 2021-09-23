@@ -5,11 +5,12 @@ from pkg_resources import resource_stream
 
 from grok.radiative_transfer.moog.io import parse_summary_synth_output
 from grok.radiative_transfer.moog.utils import moogsilent
+from grok.radiative_transfer.utils import get_default_lambdas
 
 def moog_synthesize(
         photosphere,
         transitions,
-        wavelengths=None,
+        lambdas=None,
         abundances=None,
         isotopes=None,
         terminal="x11",
@@ -24,24 +25,18 @@ def moog_synthesize(
         opacit=0,
         opacity_contribution=2.0,
         verbose=False,
-        mkdtemp_kwargs=None,
+        dir=None,
         **kwargs
     ):
     
-    if wavelengths is not None:
-        wavelength_start, wavelength_end, wavelength_delta = wavelengths
+    if lambdas is not None:
+        lambda_min, lambda_max, lambda_delta = lambdas
     else:
-        wavelength_delta = 0.01
-        wavelength_start = transitions["wavelength"].min() - 2
-        wavelength_end = transitions["wavelength"].max() + 2
+        lambda_min, lambda_max, lambda_delta = get_default_lambdas(transitions)
 
     N = 1 # number of syntheses to do
-
-    # Create a working directory.
-    mkdtemp_kwargs = mkdtemp_kwargs or dict()
-    dir = mkdtemp(**mkdtemp_kwargs)
     
-    _path = lambda basename: os.path.join(dir, basename)
+    _path = lambda basename: os.path.join(dir or "", basename)
 
     # Write photosphere and transitions.
     model_in, lines_in = (_path("model.in"), _path("lines.in"))
@@ -49,8 +44,8 @@ def moog_synthesize(
 
     # Cull transitions outside of the linelist, and sort. Otherwise MOOG dies.
     mask = \
-            (transitions["wavelength"] >= (wavelength_start - opacity_contribution)) \
-        *   (transitions["wavelength"] <= (wavelength_end + opacity_contribution))
+            (transitions["wavelength"] >= (lambda_min - opacity_contribution)) \
+        *   (transitions["wavelength"] <= (lambda_max + opacity_contribution))
     use_transitions = transitions[mask]
     use_transitions.sort("wavelength")
     use_transitions.write(lines_in, format=kwargs.get("transitions_format", "moog"))
@@ -73,9 +68,9 @@ def moog_synthesize(
         scat_flag=scat_flag,
         opacit=opacit,
         opacity_contribution=opacity_contribution,
-        wavelength_start=wavelength_start,
-        wavelength_end=wavelength_end,
-        wavelength_delta=wavelength_delta
+        lambda_min=lambda_min,
+        lambda_max=lambda_max,
+        lambda_delta=lambda_delta
     )
     if verbose:
         kwds.update(dict(
@@ -117,7 +112,6 @@ def moog_synthesize(
     
     wl, flux, meta = spectra[0]
 
-    # TODO: what the fuck moog
     meta["dir"] = dir
     return (wl, flux, meta)
     

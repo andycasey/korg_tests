@@ -21,4 +21,4 @@ scat {scat_flag:.0f}
 abundances {abundances_formatted}
 isotopes {isotopes_formatted}
 synlimits
-{wavelength_start:.2f} {wavelength_end:.2f} {wavelength_delta:.2f} {opacity_contribution:.2f}
+{lambda_min:.2f} {lambda_max:.2f} {lambda_delta:.2f} {opacity_contribution:.2f}
