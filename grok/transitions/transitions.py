@@ -14,11 +14,6 @@ class Transition(Row):
 
         else:
             # There are some translations that we are willing to do on demand:
-            # - lambda_air -> lambda
-            # - lambda -> lambda_air
-            # - species -> species_as_float
-            # - species_as_float -> species
-
             functions = {
                 "lambda": (air_to_vacuum, "lambda_air"),
                 "lambda_air": (vacuum_to_air, "lambda"),

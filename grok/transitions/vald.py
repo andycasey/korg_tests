@@ -113,11 +113,14 @@ def read_extract_all_or_extract_element(path):
     )
     data = OrderedDict([(key, []) for key, dtype in keys_and_dtypes])
     for i, line in enumerate(lines[header_rows:]):
+        if line.strip() == "References:":
+            break
 
         if i % 4 == 0:
-            if line.strip() == "References:":
+            if line.count(",") < 10: 
+                # Could be something like a footnote.
                 break
-
+            
             for (key, dtype), value in zip(keys_and_dtypes, line.split(",")):
                 formatted_value = dtype(value)
                 if key in ("species", ):
@@ -159,6 +162,4 @@ def read_vald(path):
         raise IOError(f"Unable to read VALD format. Tried methods: {methods}")
             
 registry.register_reader("vald", Transitions, read_vald)
-registry.register_reader("vald.extract_all", Transitions, read_extract_all_or_extract_element)
-registry.register_reader("vald.extract_element", Transitions, read_extract_all_or_extract_element)
-registry.register_reader("vald.extract_stellar", Transitions, read_extract_stellar_long_output)
+registry.register_reader("vald.stellar", Transitions, read_extract_stellar_long_output)
