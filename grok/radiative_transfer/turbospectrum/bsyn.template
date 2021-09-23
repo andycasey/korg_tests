@@ -1,0 +1,22 @@
+'LAMBDA_MIN:'  '{lambda_start:.3f}'
+'LAMBDA_MAX:'  '{lambda_end:.3f}'
+'LAMBDA_STEP:' '{lambda_delta:.3f}'
+'INTENSITY/FLUX:' 'Flux'
+'COS(THETA)    :' '1.000'
+'ABFIND        :' '.false.'
+'MODELINPUT:' '{modelinput_basename}'
+'MARCS-FILE': '{'.true.' if marcs_file_flag else '.false.'}
+'MODELOPAC:' '{modelopac_basename}'
+'RESULTFILE :' '{result_basename}'
+'METALLICITY:'    '{metallicity:.3f}'
+'ALPHA/Fe   :'    '{alpha_fe:.3f}'
+'HELIUM     :'    '{helium_abundance:.2f}'
+'R-PROCESS  :'    '{r_process_abundance:.2f}'
+'S-PROCESS  :'    '{s_process_abundance:.2f}'
+'NFILES   :' '{N_transition_paths}'
+{transition_paths_formatted}
+'SPHERICAL:'  'F'
+30
+300.00
+15
+1.30
