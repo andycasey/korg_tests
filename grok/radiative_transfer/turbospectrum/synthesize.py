@@ -5,7 +5,7 @@ from pkg_resources import resource_stream
 from grok.radiative_transfer.utils import get_default_lambdas
 from grok.utils import copy_or_write
 
-def turbospectrum_bysn(
+def turbospectrum_bsyn(
         photosphere,
         transitions,
         lambdas=None,
