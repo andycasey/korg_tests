@@ -97,9 +97,9 @@ def read_extract_all_or_extract_element(path):
         ("species", str),
         ("lambda_air", float),
         ("loggf", float),
-        ("excitation_potential_lower", float),
+        ("excitation_potential_lower", float), # chi_lower
         ("j_lower", float),
-        ("excitation_potential_upper", float),
+        ("excitation_potential_upper", float), # chi_upper
         ("j_upper", float),
         ("lande_factor_lower", float),
         ("lande_factor_upper", float),
@@ -107,8 +107,8 @@ def read_extract_all_or_extract_element(path):
         ("radiative_damping_constant", float),
         ("stark_damping_constant", float),
         ("vanderwaals_damping_constant", float),
-        ("line1", str),
-        ("line2", str),
+        ("lower_level_desc", str),
+        ("upper_level_desc", str),
         ("reference", str),
     )
     data = OrderedDict([(key, []) for key, dtype in keys_and_dtypes])
@@ -128,9 +128,9 @@ def read_extract_all_or_extract_element(path):
                 data[key].append(formatted_value)
 
         elif i % 4 == 1:
-            data["line1"].append(_strip_quotes(line))
+            data["lower_level_desc"].append(_strip_quotes(line))
         elif i % 4 == 2:
-            data["line2"].append(_strip_quotes(line))
+            data["upper_level_desc"].append(_strip_quotes(line))
         elif i % 4 == 3:
             data["reference"].append(_strip_quotes(line))
     

@@ -6,6 +6,7 @@ from pkg_resources import resource_stream
 from grok.radiative_transfer.moog.io import parse_summary_synth_output
 from grok.radiative_transfer.moog.utils import moogsilent
 from grok.radiative_transfer.utils import get_default_lambdas
+from grok.utils import copy_or_write
 
 def moog_synthesize(
         photosphere,
@@ -40,7 +41,11 @@ def moog_synthesize(
 
     # Write photosphere and transitions.
     model_in, lines_in = (_path("model.in"), _path("lines.in"))
-    photosphere.write(model_in, format=kwargs.get("photosphere_format", "moog"))
+    copy_or_write(
+        photosphere,
+        model_in,
+        format=kwargs.get("photosphere_format", "moog")
+    )
 
     # Cull transitions outside of the linelist, and sort. Otherwise MOOG dies.
     mask = \
@@ -48,7 +53,11 @@ def moog_synthesize(
         *   (transitions["wavelength"] <= (lambda_max + opacity_contribution))
     use_transitions = transitions[mask]
     use_transitions.sort("wavelength")
-    use_transitions.write(lines_in, format=kwargs.get("transitions_format", "moog"))
+    copy_or_write(
+        use_transitions,
+        lines_in,
+        format=kwargs.get("transitions_format", "moog")
+    )
     
     with resource_stream(__name__, "moog_synth.template") as fp:
         template = fp.read()

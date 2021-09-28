@@ -3,6 +3,7 @@ import subprocess
 from pkg_resources import resource_stream
 
 from grok.radiative_transfer.utils import get_default_lambdas
+from grok.utils import copy_or_write
 
 def turbospectrum_bysn(
         photosphere,
@@ -63,14 +64,16 @@ def turbospectrum_bysn(
     T = len(transitions)
     transition_format = kwargs.get("transition_format", "turbospectrum")
     for i, each in enumerate(transitions):
-        each.write(
+        copy_or_write(
+            each,
             _path(transition_basename_format.format(i=i)), 
             format=transition_format
         )
     
     # Write photosphere.
-    photosphere.write(
-        _path(modelinput_basename), 
+    copy_or_write(
+        photosphere,
+        _path(modelinput_basename),
         format=kwargs.get("photosphere_format", "turbospectrum")
     )
 
