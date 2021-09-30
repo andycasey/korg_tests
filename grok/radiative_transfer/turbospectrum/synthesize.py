@@ -1,5 +1,7 @@
 import os
+import numpy as np
 import subprocess
+from collections import OrderedDict
 from pkg_resources import resource_stream
 
 from grok.radiative_transfer.utils import get_default_lambdas
@@ -11,6 +13,7 @@ def turbospectrum_bsyn(
         lambdas=None,
         abundances=None,
         isotopes=None,
+        opacities=None,
         verbose=False,
         dir=None,
         **kwargs
@@ -31,6 +34,10 @@ def turbospectrum_bsyn(
 
     # TODO: Docs for abundances, isotopes.
 
+    :param opacities: [optional]
+        A path where the calculated opacities are stored. If None is given, then
+        these will be calculated by Turbospectrum.
+
     :param verbose: [optional]
         Provide verbose outputs.
 
@@ -45,17 +52,17 @@ def turbospectrum_bsyn(
 
     _path = lambda basename: os.path.join(dir or "", basename)
 
-    with resource_stream(__name__, "bsyn.template") as fp:
-        template = fp.read()
-        if isinstance(template, bytes):
-            template = template.decode("utf-8")
-        
+
     transition_basename_format = "transitions_{i}"
     modelinput_basename = "model"
     modelopac_basename = "opac"
     result_basename = "result"
-    
-    marcs_file_flag = "marcs" in photosphere.meta["read_format"].lower()
+
+    if opacities is not None:
+        copy_or_write(
+            opacities,
+            _path(modelopac_basename)
+        )        
 
     # Turbospectrum allows for transitions to be written into multiple different files.
     if not isinstance(transitions, (tuple, list)):
@@ -81,14 +88,16 @@ def turbospectrum_bsyn(
         lambda_min=lambda_min,
         lambda_max=lambda_max,
         lambda_delta=lambda_delta,
-        marcs_file_flag=marcs_file_flag,
+        marcs_file_flag_str=".false.",
         metallicity=0,          # TODO: parse from abundances
         alpha_fe=0,             # TODO: parse from abundances
+        helium_abundance=0,     # TODO: parse from abundances
         r_process_abundance=0,  # TODO: parse from abundances
         s_process_abundance=0,  # TODO: parse from abundances
         modelinput_basename=modelinput_basename,
         modelopac_basename=modelopac_basename,
         result_basename=result_basename,
+        microturbulence=2.0, # TODO
         N_transition_paths=T,
         transition_paths_formatted="\n".join(
             [transition_basename_format.format(i=i) for i in range(T)]
@@ -98,14 +107,54 @@ def turbospectrum_bsyn(
     if abundances is not None or isotopes is not None:
         raise NotImplementedError        
     
-    # Write the control file.
-    contents = template.format(**kwds)
+
+
+    # Symbolically link the turbospectrum data folder.
+    # TODO: UGH, this is a pain in the ass.
+    os.symlink(
+        "/uufs/chpc.utah.edu/common/home/u6020307/Turbospectrum2019/DATA",
+        _path("DATA")
+    )
+
+    if opacities is None:
+        # Execute Turbospectrum's babsma_lu
+
+        # Write the babsma control file.
+        with resource_stream(__name__, "babsma.template") as fp:
+            babsma_template = fp.read()
+            if isinstance(babsma_template, bytes):
+                babsma_template = babsma_template.decode("utf-8")
+
+        babsma_contents = babsma_template.format(**kwds)
+        input_path = _path("babsma.par")
+        with open(input_path, "w") as fp:
+            fp.write(babsma_contents)
+
+        # Execute Turbospectrum's babsma
+        process = subprocess.run(
+            ["babsma_lu"],
+            cwd=dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            input=babsma_contents,
+            encoding="ascii"
+        )
+        if process.returncode != 0:
+            raise RuntimeError(process.stderr)
+            
+    # Write the bsyn_lu control file.
+    with resource_stream(__name__, "bsyn.template") as fp:
+        bsyn_template = fp.read()
+        if isinstance(bsyn_template, bytes):
+            bsyn_template = bsyn_template.decode("utf-8")
+            
+    contents = bsyn_template.format(**kwds)
     input_path = _path("bsyn.par")
     with open(input_path, "w") as fp:
         fp.write(contents)
 
-    # Execute Turbospectrum.
-    p = subprocess.run(
+    # Execute Turbospectrum's bsyn_lu
+    process = subprocess.run(
         ["bsyn_lu"],
         cwd=dir,
         stdout=subprocess.PIPE,
@@ -113,7 +162,24 @@ def turbospectrum_bsyn(
         input=contents,
         encoding="ascii"
     )
+    if process.returncode != 0:
+        raise RuntimeError(process.stderr)
 
-    foo = p.returncode, p.stdout, p.stderr
+    # Load the spectrum from the result file.
+    data = np.loadtxt(_path(result_basename))
 
-    raise a
+    wavelength, rectified_flux, flux = data.T
+    result = OrderedDict([
+        ("wavelength", wavelength),
+        ("wavelength_unit", "Angstrom"),
+        ("rectified_flux", rectified_flux),
+        ("flux", flux),
+        ("flux_unit", "1e-17 erg / (Angstrom cm2 s)"),
+    ])
+    
+    meta = dict(
+        dir=dir,
+        # TODO: lots of stuff..
+    )
+
+    return (result, meta)

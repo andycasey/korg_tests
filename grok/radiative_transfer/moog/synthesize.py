@@ -1,10 +1,13 @@
 
 import os
-from tempfile import mkdtemp
+import numpy as np
+import subprocess
+from collections import OrderedDict
 from pkg_resources import resource_stream
+from tempfile import mkdtemp
 
+from grok.transitions import Transitions
 from grok.radiative_transfer.moog.io import parse_summary_synth_output
-from grok.radiative_transfer.moog.utils import moogsilent
 from grok.radiative_transfer.utils import get_default_lambdas
 from grok.utils import copy_or_write
 
@@ -47,12 +50,21 @@ def moog_synthesize(
         format=kwargs.get("photosphere_format", "moog")
     )
 
-    # Cull transitions outside of the linelist, and sort. Otherwise MOOG dies.
-    mask = \
-            (transitions["wavelength"] >= (lambda_min - opacity_contribution)) \
-        *   (transitions["wavelength"] <= (lambda_max + opacity_contribution))
-    use_transitions = transitions[mask]
-    use_transitions.sort("wavelength")
+    if isinstance(transitions, Transitions):
+        # Cull transitions outside of the linelist, and sort. Otherwise MOOG dies.    
+        mask = \
+                (transitions["lambda"] >= (lambda_min - opacity_contribution)) \
+            *   (transitions["lambda"] <= (lambda_max + opacity_contribution))
+        use_transitions = transitions[mask]
+
+        # dont use the table.sort function, because we might have read in air wavelengths
+        # and have to calculate vacuum wavelengths first.
+        indices = np.argsort(use_transitions["lambda"])
+        use_transitions = use_transitions[indices]
+    else:
+        # You're living dangerously!
+        use_transitions = transitions
+        
     copy_or_write(
         use_transitions,
         lines_in,
@@ -110,17 +122,33 @@ def moog_synthesize(
 
     # Write the control file.
     contents = template.format(**kwds)
-    with open(_path("batch.par"), "w") as fp:
+    control_path = _path("batch.par")
+    with open(control_path, "w") as fp:
         fp.write(contents)
 
     # Execute MOOG(SILENT).
-    moogsilent(_path("batch.par"))
+    process = subprocess.run(
+        ["MOOGSILENT"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=os.path.dirname(control_path),
+        input=os.path.basename(control_path) + "\n"*100,
+        encoding="ascii"
+    )
+    if process.returncode != 0:
+        raise RuntimeError(process.stderr)
 
     # Read the output.
-    spectra = parse_summary_synth_output(_path(kwds["summary_out"]))
+    output = parse_summary_synth_output(_path(kwds["summary_out"]))
+    wavelength, rectified_flux, meta = output[0]
     
-    wl, flux, meta = spectra[0]
-
+    spectrum = OrderedDict([
+        ("wavelength", wavelength),
+        ("wavelength_unit", "Angstrom"),
+        ("rectified_flux", rectified_flux),
+    ])
+    
     meta["dir"] = dir
-    return (wl, flux, meta)
+    
+    return (spectrum, meta)
     

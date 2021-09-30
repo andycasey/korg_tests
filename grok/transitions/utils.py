@@ -1,5 +1,49 @@
 
 
+def parse_or_approximate_gamma_constants(
+        lambda_vacuum,
+        species,
+        E_lower,
+        log_gf,
+        gamma_stark=None, 
+        gamma_rad=None, 
+        gamma_vdW_or_ABO=None
+    ):
+    """
+    Parse or approximate the broadening constants for a line.
+
+    :param lambda_vacuum:
+        The wavelength of the line in a vacuum in units of Angstrom.
+    
+    :param species:
+        The species representation of the transition.
+    
+    :param E_lower:
+        The lower excitation potential of the line in units of eV.
+    
+    :param log_gf:
+        Logarithm of the statistical weight of an atomic energy level (g) multiplied by 
+        the probability of transition in an atom (oscillator strength; f)
+
+    :param gamma_stark: [optional]
+        The Stark broadening constant \Gamma_stark in units of s^-1. If `None` or
+        a non-finite value is given then this will be approximated.
+    
+    :param gamma_rad: [optional]
+        The radiative damping constant \Gamma_rad in units of s^-1. if `None` or
+        a non-finite value is given then this will be approximated.
+    
+    :param gamma_vdW_or_ABO: [optional]
+        The van der Waals broadening constant \Gamma_vdW in units of s^-1 per electron,
+        or ABO constants packed into a float. If `None` or a non-finite value is given then
+        this will be approximated.
+    """
+
+    raise NotImplementedError
+
+    
+
+
 
 
 def vacuum_to_air(lambdas):
@@ -40,6 +84,7 @@ def air_to_vacuum(lambdas):
     s = 10**4 / lambdas
     n = 1 + 0.00008336624212083 + 0.02408926869968 / (130.1065924522 - s**2) + 0.0001599740894897 / (38.92568793293 - s**2)
     return lambdas * n
+
 
 
 common_molecule_name2Z = {
@@ -126,3 +171,5 @@ def species(species_as_float):
     ionization = int(10 * (species_as_float % i))
     return f"{element} {ionization}"
 
+def as_element(species_as_float):
+    return species(species_as_float).split(" ")[0]
