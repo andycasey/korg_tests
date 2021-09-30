@@ -1,17 +1,18 @@
 import re
 import numpy as np
 from astropy.io import registry
+from astropy import units as u
 
-from grok.transitions import Transitions
+from grok.transitions import (Species, Transition, Transitions)
 from grok.utils import safe_open
 
 _header_pattern = "'\s*(?P<turbospectrum_species_as_float>[\d\.]+)\s*'\s*(?P<ionisation>\d+)\s+(?P<num>\d+)"
-_line_pattern = "\s*(?P<lambda>[\d\.]+)\s*(?P<E_lower>[\-\d\.]+)\s*(?P<log_gf>[\-\d\.]+)\s*(?P<gamma_vdW_or_ABO>[\-\d\.]+)\s*(?P<g_upper>[\d\.]+)\s*(?P<gamma_rad>[\d\.E\+\-]+)\s'(?P<lower_orbital_type>\w)' '(?P<upper_orbital_type>\w)'\s+(?P<equivalent_width>[\d\.]+)\s+(?P<equivalent_width_error>[\d\.]+)\s'(?P<comment>.+)'"
+_line_pattern = "\s*(?P<lambda_air>[\d\.]+)\s*(?P<E_lower>[\-\d\.]+)\s*(?P<log_gf>[\-\d\.]+)\s*(?P<vdW>[\-\d\.]+)\s*(?P<g_upper>[\d\.]+)\s*(?P<gamma_rad>[\d\.E\+\-]+)\s'(?P<lower_orbital_type>\w)' '(?P<upper_orbital_type>\w)'\s+(?P<equivalent_width>[\d\.]+)\s+(?P<equivalent_width_error>[\d\.]+)\s'(?P<comment>.+)'"
 
 # Amazingly, there does not seem to be a python string formatting that does the following:
 _format_log_gf = lambda log_gf: "{0:< #6.3f}".format(log_gf)[:6]
 # You might think that "{0:< #6.4g}" would work, but try it for -0.002 :head_exploding:
-_line_template = "{line[lambda]:10.3f} {line[E_lower]:6.3f} {formatted_log_gf:s} {line[gamma_vdW_or_ABO]:8.3f} {line[g_upper]:6.1f} {line[gamma_rad]:9.2E} '{line[lower_orbital_type]:s}' '{line[upper_orbital_type]:s}' {line[equivalent_width]:5.1f} {line[equivalent_width_error]:6.1f} '{line[comment]}'"
+_line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {formatted_log_gf:s} {line.vdW:8.3f} {line.g_upper:6.1f} {line.gamma_rad.value:9.2E} '{line.lower_orbital_type:s}' '{line.upper_orbital_type:s}' {line.equivalent_width:5.1f} {line.equivalent_width_error:6.1f} '{line.comment}'"
 
 
 def read_transitions(path):
@@ -26,42 +27,51 @@ def read_transitions(path):
     lines = content.split("\n")
 
     keys_as_floats = (
-        "turbospectrum_species_as_float", "lambda", "E_lower", "log_gf",
-        "gamma_vdW_or_ABO", "g_upper", "gamma_rad",
+        "lambda_air", "E_lower", "log_gf",
+        "vdW", "g_upper", "gamma_rad",
         "equivalent_width", "equivalent_width_error"
-    )
-
-    # https://github.com/bertrandplez/Turbospectrum2019/blob/master/Utilities/vald3line-BPz-freeformat.f#448
-    # g_upper = j_upper * 2 + 1
-
-    i, data = (0, [])
+    )    
+    i, transitions = (0, [])
     while i < len(lines):
         if len(lines[i].strip()) == 0:
             i += 1
             continue
 
         common = re.match(_header_pattern, lines[i]).groupdict()
-        common["ionisation"] = int(common["ionisation"])
         num = int(common.pop("num"))
 
-        common["representation"] = lines[i + 1][1:-1].strip()
-
+        # Note that we are interpreting the ionisation state from the species representation,
+        # and ignoring the 'ionisation' in 'common'.
+        common["species"] = Species(common["turbospectrum_species_as_float"])
+        # Update the charge, using the representation like "Th II", since Turbospectrum does
+        # not encode the ionisation in this species representation.
+        common["species"].charge = Species(lines[i + 1][1:-1]).charge
+        
         for j, line in enumerate(lines[i+2:i+2+num], start=i+2):
             transition = re.match(_line_pattern, line).groupdict()
             
             row = { **common, **transition }
-
+            
             # Format things.
             for key in keys_as_floats:
                 row[key] = float(row[key])
-            data.append(row)
 
-            raise NotImplementedError("parse vdW or ABO")
+            # Add units.
+            row["lambda_air"] *= u.Angstrom
+            row["E_lower"] *= u.eV
+            row["gamma_rad"] *= (1/u.s)
 
+            # https://github.com/bertrandplez/Turbospectrum2019/blob/master/Utilities/vald3line-BPz-freeformat.f#448
+            # g_upper = j_upper * 2 + 1
+            row["j_upper"] = 0.5 * (row["g_upper"] - 1)
+            transitions.append(Transition(
+                lambda_vacuum=None,
+                **row
+            ))
         i += 2 + num
     
-    return Transitions(data=data)
-
+    return Transitions(transitions)
+    
 
 def write_transitions(transitions, path):
     """
@@ -74,35 +84,43 @@ def write_transitions(transitions, path):
         The path to store the transitions on disk.
     """
 
+    # Sort the right way.
+    group_names = list(map(str, sorted(set([float(line.species.compact) for line in transitions]))))
+    
     lines = []
+    for i, group_name in enumerate(group_names):
 
-    for group in transitions.group_by(("turbospectrum_species_as_float", "representation")).groups:
-
-        group.sort("lambda")
+        group = sorted(
+            filter(lambda t: str(float(t.species.compact)) == group_name, transitions),
+            key=lambda t: t.lambda_vacuum
+        )
 
         # Add header information.
-        is_molecule = group[0]["turbospectrum_species_as_float"] > 100
-        if is_molecule:
-            lines.extend([
-                f"'{group[0]['turbospectrum_species_as_float']: >11.6f}         ' {group[0]['ionisation']: >4.0f} {len(group): >9.0f}",
-                f"'{group[0]['representation']:7s}'"
-            ])
-        else:
-            repr = f"'{group[0]['turbospectrum_species_as_float']: >8.3f}            '"
-            lines.extend([
-                f"{repr} {group[0]['ionisation']: >4.0f} {len(group): >9.0f}",
-                f"'{group[0]['representation']:7s}'"
-            ])
-        
+        species = group[0].species
+
+        formula = "".join([f"{Z:0>2.0f}" for Z in species.Zs if Z > 0])
+        isotope = "".join([f"{I:0>3.0f}" for Z, I in zip(species.Zs, species.isotopes) if Z > 0])
+
+        # Left-pad and strip formula.
+        formula = formula.lstrip("0")
+        formula = f"{formula: >4}"
+
+        compact = f"{formula}.{isotope}"
+
+        lines.extend([
+            f"'{compact: <20}' {species.charge + 1: >4.0f} {len(group): >9.0f}",
+            f"'{str(species):7s}'"
+        ])
+
         for line in group:
             lines.append(
                 _line_template.format(
                     line=line,
-                    formatted_log_gf=_format_log_gf(line["log_gf"])
+                    formatted_log_gf=_format_log_gf(line.log_gf)
                 )
             )
 
-    
+
     with open(path, "w") as fp:
         fp.write("\n".join(lines))
 

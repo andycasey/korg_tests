@@ -52,15 +52,13 @@ def moog_synthesize(
 
     if isinstance(transitions, Transitions):
         # Cull transitions outside of the linelist, and sort. Otherwise MOOG dies.    
-        mask = \
-                (transitions["lambda"] >= (lambda_min - opacity_contribution)) \
-            *   (transitions["lambda"] <= (lambda_max + opacity_contribution))
-        use_transitions = transitions[mask]
-
-        # dont use the table.sort function, because we might have read in air wavelengths
-        # and have to calculate vacuum wavelengths first.
-        indices = np.argsort(use_transitions["lambda"])
-        use_transitions = use_transitions[indices]
+        use_transitions = Transitions(sorted(
+            filter(
+                lambda t: (lambda_max + opacity_contribution) >= t.lambda_air.value >= (lambda_min - opacity_contribution),
+                transitions
+            ),
+            key=lambda t: t.lambda_air
+        ))
     else:
         # You're living dangerously!
         use_transitions = transitions

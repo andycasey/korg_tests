@@ -56,14 +56,17 @@ class Formula(object):
         # Prepend with zeros.
         Zs = (([0] * self._Nz) + Zs)[-self._Nz:]
 
-        # TODO: Should we sort here or just in time for outputting?
+        # We don't sort here because we don't know the isotope information, and we would have to order that too.
         self.Zs = tuple(Zs)
         return None
 
 
-    def __repr__(self):
-        return f"<{''.join(self.atoms)}>"
 
+    def __repr__(self):
+        return f"<{self}>"
+
+    def __str__(self):
+        return "".join(self.atoms)
 
     @property
     def atoms(self):

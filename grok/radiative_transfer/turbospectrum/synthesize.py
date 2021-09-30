@@ -65,18 +65,15 @@ def turbospectrum_bsyn(
         )        
 
     # Turbospectrum allows for transitions to be written into multiple different files.
-    if not isinstance(transitions, (tuple, list)):
-        transitions = (transitions, )
-    
-    T = len(transitions)
-    transition_format = kwargs.get("transition_format", "turbospectrum")
-    for i, each in enumerate(transitions):
-        copy_or_write(
-            each,
-            _path(transition_basename_format.format(i=i)), 
-            format=transition_format
-        )
-    
+    # TODO: Need to find out if that's ever a legitamite use case. Otherwise let's merge
+    #       all to one file.
+    T = 1
+    copy_or_write(
+        transitions,
+        _path(transition_basename_format.format(i=0)), 
+        format=kwargs.get("transition_format", "turbospectrum")
+    )
+
     # Write photosphere.
     copy_or_write(
         photosphere,
