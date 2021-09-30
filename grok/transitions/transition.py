@@ -60,6 +60,7 @@ class Transition(object):
             if missing(gamma_stark):
                 gamma_stark = gamma_stark_approx
             if missing(vdW):
+                raise a
                 vdW = vdW_approx
 
         if vdW < 0:
@@ -128,10 +129,17 @@ class Transition(object):
     def __str__(self):
         return f"{self.species} at λ = {self.lambda_vacuum:4.3f} (vacuum)"
 
+    @property
+    def vdW_compact(self):
+        """
+        Compact representation of van der Waals constant.
+        """
+        return np.log10(self.vdW) if np.log10(self.vdW) < 0 else self.vdW
 
 def approximate_radiative_gamma(lambda_vacuum, log_gf):
     # TODO: assumes lambda_vacuum is in cm, or has a unit.
     e_ = e.value * 10 * c.to("m/s").value
+    raise a
     return 8 * np.pi**2 * e_**2 / (m_e.cgs * c.cgs * lambda_vacuum**2) * 10**log_gf
 
 

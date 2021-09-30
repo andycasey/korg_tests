@@ -12,7 +12,7 @@ _line_pattern = "\s*(?P<lambda_air>[\d\.]+)\s*(?P<E_lower>[\-\d\.]+)\s*(?P<log_g
 # Amazingly, there does not seem to be a python string formatting that does the following:
 _format_log_gf = lambda log_gf: "{0:< #6.3f}".format(log_gf)[:6]
 # You might think that "{0:< #6.4g}" would work, but try it for -0.002 :head_exploding:
-_line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {formatted_log_gf:s} {line.vdW:8.3f} {line.g_upper:6.1f} {line.gamma_rad.value:9.2E} '{line.lower_orbital_type:s}' '{line.upper_orbital_type:s}' {line.equivalent_width:5.1f} {line.equivalent_width_error:6.1f} '{line.comment}'"
+_line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {formatted_log_gf:s} {line.vdW_compact:8.3f} {line.g_upper:6.1f} {line.gamma_rad.value:9.2E} '{line.lower_orbital_type:s}' '{line.upper_orbital_type:s}' {line.equivalent_width:5.1f} {line.equivalent_width_error:6.1f} '{line.comment}'"
 
 
 def read_transitions(path):
@@ -135,6 +135,9 @@ def identify_turbospectrum(origin, *args, **kwargs):
     There's no accepted nomenclature for line list filenames, so we will check
     the header of the file.
     """
+    if args[1] is None:
+        return False
+    
     first_line = args[1].readline()
     if isinstance(first_line, bytes):
         first_line = first_line.decode("utf-8")
