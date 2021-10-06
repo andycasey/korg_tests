@@ -12,7 +12,80 @@ _line_pattern = "\s*(?P<lambda_air>[\d\.]+)\s*(?P<E_lower>[\-\d\.]+)\s*(?P<log_g
 # Amazingly, there does not seem to be a python string formatting that does the following:
 _format_log_gf = lambda log_gf: "{0:< #6.3f}".format(log_gf)[:6]
 # You might think that "{0:< #6.4g}" would work, but try it for -0.002 :head_exploding:
-_line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {formatted_log_gf:s} {line.vdW_compact:8.3f} {line.g_upper:6.1f} {line.gamma_rad.value:9.2E} '{line.lower_orbital_type:s}' '{line.upper_orbital_type:s}' {line.equivalent_width:5.1f} {line.equivalent_width_error:6.1f} '{line.comment}'"
+_line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {formatted_log_gf:s} {vdW_compact:8.3f} {line.g_upper:6.1f} {gamma_rad.value:9.2E} '{line.lower_orbital_type:s}' '{line.upper_orbital_type:s}' {line.equivalent_width:5.1f} {line.equivalent_width_error:6.1f} '{line.comment}'"
+
+
+def should_skip(transition):
+    """
+    Returns a boolean flag whether a transition should be excluded (True) or included (False)
+    from Turbospectrum.
+
+    The logic here follows that from the VALD export script by Bertrand Plez.
+    """
+    if not (2 > transition.species >= 0) \
+    or transition.E_lower >= (15 * u.eV):
+        return True
+
+    # TODO: autoionization lines.
+    # why Z < 3 for any? that would exclude MgH, etc.
+    
+    return False
+
+
+def update_missing_transition_data(transition):
+    """
+    Validate (and update) transition data. This is done by the script that converts VALD line lists
+    to Turbospectrum formats. Specifically it checks the van der Waals broadening constant and
+    gamma radiative. If it doesn't like the values, it changes them.
+
+    This returns a copy of the transition, with the updated data.
+    """
+    t = transition.copy()
+    if np.isclose(t.vdW, 0, atol=1-e5):
+        t.vdW = lookup_approximate_vdW(t)
+    
+    t.gamma_rad = parse_gamma_rad(t)
+    return t
+
+
+def parse_gamma_rad(transition):
+    #https://github.com/bertrandplez/Turbospectrum2019/blob/master/Utilities/vald3line-BPz-freeformat.f#L420-428
+
+    if np.isclose(transition.gamma_rad.value, 0, atol=1e-5)
+        return 1e5 * (1/u.s)
+    elif transition.gamma_rad.value > 3:
+        return 10**transition.gamma_rad.value * (1/u.s)
+
+
+def lookup_approximate_vdW(transition):
+
+    default_value = 2.5 # Mackle et al. 1975 A&A 38, 239
+
+    neutral_damping = { 
+        "Na": 2.0, # Holweger 1971 A&A 10, 128
+        "Si": 1.3, # Holweger 1973 A&A 26, 275
+        "Ca": 1.8, # O'Neill & Smith 1980 A&A 81, 100
+        "Fe": 1.4  # Simmons & Blackwell 1982 A&A 112, 209 and Magain & Zhao 1996 A&A 305, 245
+    }
+    ionized_damping = {
+        "Ca": 1.4, # from fit of H&K in the HM model to the fts intensity spectrum
+        "Sr": 1.8, # from fit of Sr II 4077.724 in the HM model to the fts intensity spectrum
+        "Ba": 3.0 # Holweger & Muller 1974 Solar Physics 39, 19
+    }
+    is_molecule = (len([Z for Z in transition.species.Zs if Z > 0]) > 1)
+    if not is_molecule:
+        if transition.species.charge == 0:
+            try:
+                return neutral_damping[transition.species.atoms[0]]
+            except KeyError:
+                return default_value
+        elif transition.species.charge == 1:
+            try:
+                return ionized_damping[transition.species.atoms[0]]
+            except KeyError:
+                return default_value
+    else:
+        return default_value
 
 
 def read_transitions(path):
@@ -112,10 +185,14 @@ def write_transitions(transitions, path):
             f"'{str(species):7s}'"
         ])
 
+        # Turbospectrum makes some approximations and lookups if the input values are not what
+        # they want.
         for line in group:
             lines.append(
                 _line_template.format(
                     line=line,
+                    vdW_compact=vdW_compact,
+                    gamma_rad=gamma_rad,
                     formatted_log_gf=_format_log_gf(line.log_gf)
                 )
             )
