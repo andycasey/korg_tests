@@ -45,6 +45,8 @@ def update_missing_transition_data(transition):
         t.vdW = lookup_approximate_vdW(t)
     
     t.gamma_rad = parse_gamma_rad(t)
+    t.lower_orbital_type = t.lower_orbital_type or "X"
+    t.upper_orbital_type = t.upper_orbital_type or "X"
     return t
 
 
