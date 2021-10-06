@@ -12,7 +12,7 @@ _line_pattern = "\s*(?P<lambda_air>[\d\.]+)\s*(?P<E_lower>[\-\d\.]+)\s*(?P<log_g
 # Amazingly, there does not seem to be a python string formatting that does the following:
 _format_log_gf = lambda log_gf: "{0:< #6.3f}".format(log_gf)[:6]
 # You might think that "{0:< #6.4g}" would work, but try it for -0.002 :head_exploding:
-_line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {formatted_log_gf:s} {vdW_compact:8.3f} {line.g_upper:6.1f} {gamma_rad.value:9.2E} '{line.lower_orbital_type:s}' '{line.upper_orbital_type:s}' {line.equivalent_width:5.1f} {line.equivalent_width_error:6.1f} '{line.comment}'"
+_line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {formatted_log_gf:s} {line.vdW_compact:8.3f} {line.g_upper:6.1f} {line.gamma_rad.value:9.2E} '{line.lower_orbital_type:s}' '{line.upper_orbital_type:s}' {line.equivalent_width:5.1f} {line.equivalent_width_error:6.1f} '{line.comment}'"
 
 
 def should_skip(transition):
@@ -185,14 +185,14 @@ def write_transitions(transitions, path):
             f"'{str(species):7s}'"
         ])
 
-        # Turbospectrum makes some approximations and lookups if the input values are not what
-        # they want.
         for line in group:
+
+            # Turbospectrum makes some approximations and lookups if the input values are not what
+            # they want.
+            updated_line = update_missing_transition_data(line)
             lines.append(
                 _line_template.format(
-                    line=line,
-                    vdW_compact=vdW_compact,
-                    gamma_rad=gamma_rad,
+                    line=updated_line,
                     formatted_log_gf=_format_log_gf(line.log_gf)
                 )
             )
