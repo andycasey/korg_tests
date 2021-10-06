@@ -7,7 +7,7 @@ from collections import OrderedDict
 from astropy.io import registry
 
 from .photosphere import Photosphere
-from .utils import periodic_table
+from grok.utils import periodic_table, safe_open
 
 
 def parse_meta(contents):
@@ -72,14 +72,9 @@ def parse_meta(contents):
 
 
 
-def read_atlas9(filename, structure_start=23):
+def read_atlas9(fp_or_path, structure_start=23):
 
-    can_opener = gzip.open if filename.lower().endswith(".gz") else open
-    with can_opener(filename, "r") as fp:
-        contents = fp.read()
-
-    if isinstance(contents, bytes):
-        contents = contents.decode("utf-8")
+    filename, contents, content_stream = safe_open(fp_or_path)
 
     meta = parse_meta(contents)
     meta["filename"] = filename
@@ -91,7 +86,7 @@ def read_atlas9(filename, structure_start=23):
 
     data = OrderedDict([])
     for skiprows, column_names in column_locations:
-        values = np.loadtxt(filename, skiprows=skiprows, max_rows=N)
+        values = np.loadtxt(content_stream, skiprows=skiprows, max_rows=N)
         data.update(dict(zip(column_names, values.T)))
 
     # According to https://sme.readthedocs.io/en/latest/content/modules.html
@@ -118,10 +113,10 @@ def read_atlas9(filename, structure_start=23):
         meta=meta
     )
 
-#def identify_atlas9(origin, *args, **kwargs):
-#    print(origin, args, kwargs)
-#    return (isinstance(args[0], str) and "atlas" in args[0].lower().split(".")[-1])
-    
+def identify_atlas9(origin, *args, **kwargs):
+    return (isinstance(args[0], str) and \
+            args[0].lower().endswith((".dat", ".dat.gz")))
+
 registry.register_reader("atlas9", Photosphere, read_atlas9)
-#registry.register_identifier("atlas9", Photosphere, identify_atlas9)
+registry.register_identifier("atlas9", Photosphere, identify_atlas9)
 

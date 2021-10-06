@@ -8,7 +8,7 @@ from astropy.io import registry
 from collections import OrderedDict
 
 from .photosphere import Photosphere
-from .utils import periodic_table
+from grok.utils import periodic_table, safe_open
 
 def parse_meta(contents):
 
@@ -101,15 +101,9 @@ def loadtxt(filename, skiprows, max_rows, replace_as_nan="******"):
 
 
 
-
-def read_marcs(filename, structure_start=25):
+def read_marcs(fp_or_path, structure_start=25):
     
-    can_opener = gzip.open if filename.lower().endswith(".gz") else open
-    with can_opener(filename, "r") as fp:
-        contents = fp.read()
-
-    if isinstance(contents, bytes):
-        contents = contents.decode("utf-8")
+    filename, contents, content_stream = safe_open(fp_or_path)
 
     meta = parse_meta(contents)
     meta["filename"] = filename
@@ -165,5 +159,9 @@ def read_marcs(filename, structure_start=25):
     )
     return photosphere
 
+def identify_marcs(origin, *args, **kwargs):
+    return (isinstance(args[0], str) and \
+            args[0].lower().endswith((".mod", ".mod.gz")))
 
 registry.register_reader("marcs", Photosphere, read_marcs)
+registry.register_identifier("marcs", Photosphere, identify_marcs)
