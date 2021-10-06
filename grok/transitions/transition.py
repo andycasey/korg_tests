@@ -103,8 +103,8 @@ class Transition(object):
         self.lande_depth = lande_depth
         self.reference = reference
         self.comment = comment
-        self.equivalent_width = equivalent_width or 0.0 # auto-apply units
-        self.equivalent_width_error = equivalent_width_error or 1.0 # auto-apply units
+        self.equivalent_width = equivalent_width # auto-apply units
+        self.equivalent_width_error = equivalent_width_error # auto-apply units
 
         self.E_dissociation = E_dissociation # auto-apply units
 
