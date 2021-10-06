@@ -10,6 +10,28 @@ from grok.utils import safe_open
 _strip_quotes = lambda s: s.strip("' ")
 _strip_quotes_bytes = lambda s: _strip_quotes(s.decode("utf-8"))
 
+# Alex Ji made this selection rule matrix. 12x12
+# The rows are lower, going from 0-1 00 01 02 through 22 for llo1,llo2
+# The cols are upper, going from 0-1 00 01 02 through 22 for lhi1,lhi2
+# Index is 4*lo + hi+1
+_all_level_map = np.array([
+    [(0,0),(0,0),(0,1),(0,2), (0,1),(0,1),(0,1),(0,1), (0,2),(0,2),(0,1),(0,2)],
+    [(0,0),(0,0),(0,1),(0,0), (0,1),(0,1),(0,1),(0,1), (0,2),(0,2),(0,1),(0,2)],
+    [(1,0),(1,0),(0,1),(1,2), (0,1),(0,1),(0,1),(0,1), (0,2),(0,2),(0,1),(0,2)],
+    [(2,0),(0,0),(0,1),(0,0), (0,1),(0,1),(0,1),(0,1), (0,2),(0,2),(0,1),(0,2)],
+    
+    [(1,0),(1,0),(1,0),(1,0), (1,1),(1,0),(1,1),(1,2), (1,2),(1,2),(1,2),(1,2)],
+    [(1,0),(1,0),(1,0),(1,0), (0,1),(1,0),(0,1),(1,2), (1,2),(1,2),(1,2),(1,2)],
+    [(1,0),(1,0),(1,0),(1,0), (1,1),(1,0),(1,1),(1,2), (1,2),(1,2),(1,2),(1,2)],
+    [(1,0),(1,0),(1,0),(1,0), (2,1),(1,0),(2,1),(1,2), (1,2),(1,2),(1,2),(1,2)],
+
+    [(2,0),(1,0),(2,1),(2,0), (2,1),(2,1),(2,1),(2,1), (2,2),(2,0),(2,1),(2,2)],
+    [(2,0),(2,0),(2,1),(2,0), (2,1),(2,1),(2,1),(2,1), (0,2),(2,2),(2,1),(2,2)],
+    [(1,0),(1,0),(2,1),(1,2), (2,1),(2,1),(2,1),(2,1), (1,2),(1,2),(2,1),(1,2)],
+    [(2,0),(2,0),(2,1),(2,0), (2,1),(2,1),(2,1),(2,1), (2,2),(2,2),(2,1),(2,2)]
+])
+
+
 def parse_references(lines):
     reference_header = "References:"
     for i, line in enumerate(lines):
@@ -40,6 +62,52 @@ def as_species_with_correct_charge(representation):
     species = Species(_strip_quotes(representation))
     species.charge -= 1
     return species
+
+
+def parse_levels(lower, upper):
+    """
+    Parse the level information encoded by VALD. An example might be:
+
+    > parse_levels('LS 3d9.(2D).4d 3S', 'LS 3d8.(3P).4s.4p.(3P*) 1P*')
+    """
+    lower, upper = (lower.lstrip(), upper.lstrip())
+
+    coupling_chars = 2
+    all_levels = "spdfghik"
+    unknown = ("X", "X")
+
+    levels = []
+    for level_description in (lower, upper):
+        coupling = level_description[:coupling_chars]
+        if coupling not in ("LS", "JJ", "JK", "LK"):
+            return unknown
+            
+        # These Nones are in case we find no level information.
+        level_descs = [None, None] + re.findall(f"[{all_levels}]", level_description[coupling_chars:]) 
+
+        # We're just getting the last two levels.
+        for level_desc in level_descs[::-1][:2]:
+            if level_desc is None:
+                levels.append(-1)
+            else:
+                levels.append(all_levels.index(level_desc))
+
+    llo, llo2, lhi, lhi2 = levels
+    # From https://github.com/alexji/turbopy/blob/main/turbopy/linelists.py:
+    if llo >= 3 or lhi >= 3:
+        llo, lhi = (2, 3)
+    elif (llo < 0) & (lhi < 0):
+        return unknown
+    elif np.abs(lhi - llo) == 1:
+        pass
+    elif llo2 >= 3 or lhi2 >= 3:
+        llo, lhi = (2, 3)
+    else:
+        ixrow = 4*llo + llo2+1
+        ixcol = 4*lhi + lhi2+1
+        llo, lhi = _all_level_map[ixrow, ixcol]
+    
+    return (all_levels[llo], all_levels[lhi])
 
 
 def read_extract_stellar_long_output(path):
@@ -166,8 +234,12 @@ def read_extract_all_or_extract_element(path):
         elif i % 4 == 3:
             data["reference"] = _strip_quotes(line)
 
+            # Parse the orbital information.
+            lower_orbital_type, upper_orbital_type = parse_levels(data["lower_level_desc"], data["upper_level_desc"])
+            data["lower_orbital_type"] = lower_orbital_type
+            data["upper_orbital_type"] = upper_orbital_type
+
             # Now put it into a transition.
-            
             transitions.append(
                 Transition(
                     lambda_vacuum=None,

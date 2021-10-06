@@ -72,9 +72,8 @@ class Transition(object):
             #raise NotImplementedError("check to see how this is packed in MOOG vs others")
             None
             
-        gamma_rad = gamma_rad \
-                    or approximate_radiative_gamma(lambda_vacuum, log_gf)
-                
+        gamma_rad = gamma_rad or approximate_radiative_gamma(lambda_vacuum, log_gf)
+                    
         # Store everything.
         self._lambda_vacuum = lambda_vacuum
         self._lambda_air = lambda_air
@@ -104,8 +103,8 @@ class Transition(object):
         self.lande_depth = lande_depth
         self.reference = reference
         self.comment = comment
-        self.equivalent_width = equivalent_width # auto-apply units
-        self.equivalent_width_error = equivalent_width_error # auto-apply units
+        self.equivalent_width = equivalent_width or 0.0 # auto-apply units
+        self.equivalent_width_error = equivalent_width_error or 1.0 # auto-apply units
 
         self.E_dissociation = E_dissociation # auto-apply units
 
@@ -134,7 +133,14 @@ class Transition(object):
         """
         Compact representation of van der Waals constant.
         """
-        return np.log10(self.vdW) if np.log10(self.vdW) < 0 else self.vdW
+        return np.log10(self.vdW) if (np.log10(self.vdW) < 0 and np.isfinite(np.log10(self.vdW))) else self.vdW
+
+
+    def copy(self):
+        data = dict([(k.lstrip("_"), v) for k, v in self.__dict__.items()])
+        return self.__class__(**data)
+
+
 
 def approximate_radiative_gamma(lambda_vacuum, log_gf):
     # TODO: assumes lambda_vacuum is in cm, or has a unit.
