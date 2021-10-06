@@ -1,5 +1,17 @@
 from grok.utils import periodic_table
 
+# Only used to order molecules the right way.
+# https://en.wikipedia.org/wiki/Electronegativity
+_electronegativity = [
+    2.300,                                                                                                        4.160, 
+    0.912, 1.576,                                                              2.051, 2.544, 3.066, 3.610, 4.193, 4.787,
+    0.869, 1.293,                                                              1.613, 1.916, 2.253, 2.589, 2.869, 3.242,
+    0.734, 1.034, 1.19, 1.38, 1.53, 1.65, 1.75, 1.80, 1.84, 1.88, 1.85, 1.588, 1.756, 1.994, 2.211, 2.424, 2.685, 2.966,
+    0.706, 0.963, 1.12, 1.32, 1.41, 1.47, 1.51, 1.54, 1.56, 1.58, 1.87, 1.521, 1.656, 1.824, 1.984, 2.158, 2.359, 2.582,
+    0.659, 0.881, 1.09, 1.16, 1.34, 1.47, 1.60, 1.65, 1.68, 1.72, 1.92, 1.765, 1.789, 1.854, 2.010, 2.190, 2.390, 2.600,
+    0.670, 0.890
+]
+
 class Formula(object):
     
     _Nz = 3 # support up to tri-atomic molecules
@@ -66,6 +78,8 @@ class Formula(object):
         return f"<{self}>"
 
     def __str__(self):
+        # For string representations we should order by electropositivity.
+
         return "".join(self.atoms)
 
     @property
