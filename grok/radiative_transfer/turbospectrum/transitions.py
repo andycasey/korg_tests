@@ -16,7 +16,7 @@ _line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {forma
 
 
 # Ionization potentials for each element. Used to identify bound-free transitions.
-_ionization_potential_neutral = [
+_ionization_potential_p1 = [
     13.60, 24.59,  5.39,  9.32,  8.30, 11.26, 14.53, 13.62, 17.40,
     21.56,  5.14,  7.64,  5.99,  8.15, 10.48, 10.36, 12.97, 15.76,
      4.34,  6.11,  6.54,  6.82,  6.74,  6.77,  7.44,  7.87,  7.86,
@@ -29,7 +29,7 @@ _ionization_potential_neutral = [
      7.42,  7.29,  8.42,  9.30, 10.75,  4.00,  5.28,  6.90,  6.08,
      9.99,  6.00
 ]
-_ionization_potential_singly_charged = [
+_ionization_potential_p2 = [
       .00, 54.42, 75.64, 18.21, 25.15, 24.38, 29.60, 35.12, 35.00,
     40.96, 47.29, 15.03, 18.83, 16.35, 19.72, 23.33, 23.81, 27.62,
     31.63, 11.87, 12.80, 13.58, 14.65, 16.50, 15.64, 16.18, 17.06,
@@ -59,12 +59,12 @@ def should_keep(transition, return_reason=False):
         reason = "Lower excitation potential exceeds 15 eV."
     elif (len(transition.species.atoms) == 1 and transition.species.atoms[0] in ("H", "He")):
         reason = "Skipping H and He atomic lines."
-    elif not transition.is_molecule and transition.species.charge == 0 \
-        and transition.E_upper.to("eV").value > _ionization_potential_neutral[transition.species.Zs[-1] - 1]:
-        reason = f"Neutral atomic species is a bound-free transition ({transition.E_upper.value} > {_ionization_potential_neutral[transition.species.Zs[-1] - 1]})."
     elif not transition.is_molecule and transition.species.charge == 1 \
-        and transition.E_upper.to("eV").value > _ionization_potential_singly_charged[transition.species.Zs[-1] - 1]:
-        reason = f"Singly ionized atomic species is a bound free transition ({transition.E_upper.value} > {_ionization_potential_singly_charged[transition.species.Zs[-1] - 1]})."
+        and transition.E_upper.to("eV").value > _ionization_potential_p1[transition.species.Zs[-1] - 1]:
+        reason = f"Neutral atomic species is a bound-free transition ({transition.E_upper.value} > {_ionization_potential_p1[transition.species.Zs[-1] - 1]})."
+    elif not transition.is_molecule and transition.species.charge == 2 \
+        and transition.E_upper.to("eV").value > _ionization_potential_p2[transition.species.Zs[-1] - 1]:
+        reason = f"Singly ionized atomic species is a bound free transition ({transition.E_upper.value} > {_ionization_potential_p2[transition.species.Zs[-1] - 1]})."
     
     return reason if return_reason else reason is None
 
@@ -78,7 +78,7 @@ def update_missing_transition_data(transition):
     This returns a copy of the transition, with the updated data.
     """
     t = transition.copy()
-    if np.isclose(t.vdW, 0, atol=1e-5):
+    if np.isclose(t.vdW, 0, atol=1e-10):
         t.vdW = lookup_approximate_vdW(t)
     
     t.gamma_rad = parse_gamma_rad(t)
@@ -91,11 +91,9 @@ def update_missing_transition_data(transition):
 
 def parse_gamma_rad(transition):
     #https://github.com/bertrandplez/Turbospectrum2019/blob/master/Utilities/vald3line-BPz-freeformat.f#L420-428
-
-    if np.isclose(transition.gamma_rad.value, 0, atol=1e-5):
-        return 1e5 * (1/u.s)
-    elif transition.gamma_rad.value > 3:
+    if transition.gamma_rad.value > 3:
         return 10**transition.gamma_rad.value * (1/u.s)
+    return 1e5 * (1/u.s)
 
 
 def lookup_approximate_vdW(transition):
@@ -193,8 +191,8 @@ def read_transitions(path):
 def write_transitions(
         transitions, 
         path, 
-        skip_irrelevant_transitions=False,
-        update_missing_data=False,
+        skip_irrelevant_transitions=True,
+        update_missing_data=True,
     ):
     """
     Write transitions to disk in a format that Turbospectrum accepts.
@@ -250,12 +248,15 @@ def write_transitions(
             # Turbospectrum makes some approximations and lookups if the input values are not what
             # they want.
             updated_line = update_missing_transition_data(line) if update_missing_data else line
-            lines.append(
-                _line_template.format(
+            try:
+                formatted_line = _line_template.format(
                     line=updated_line,
                     formatted_log_gf=_format_log_gf(line.log_gf)
                 )
-            )
+            except TypeError:
+                if not update_missing_data:
+                    raise TypeError("Missing transition data. Update it or set `update_missing_data` to True.")
+            lines.append(formatted_line)
 
 
     with open(path, "w") as fp:
