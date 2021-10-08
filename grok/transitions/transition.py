@@ -140,6 +140,37 @@ class Transition(object):
         data = dict([(k.lstrip("_"), v) for k, v in self.__dict__.items()])
         return self.__class__(**data)
 
+    @property
+    def is_molecule(self):
+        """ A boolean flag to indicate whether this species is a molecule or not. """
+        return (len(self.species.atoms) > 1)
+
+
+    def __eq__(self, other):
+        # Check formula.
+        same_species = (self.species.compact == other.species.compact)
+        check_properties = [
+            ("lambda_vacuum", 1e-3, 1e-5),
+            ("E_lower", 1e-3, 1e-5, ),
+            ("log_gf", 1e-3, 1e-5)
+        ]
+        if same_species:
+            for prop, atol, rtol in check_properties:
+                A = getattr(self, prop)
+                B = getattr(other, prop)
+                try:
+                    A = A.value
+                    B = B.value
+                except:
+                    None
+                if not np.isclose(A, B, rtol=rtol, atol=atol):
+                    return False
+            return True
+        return False
+
+
+            # check wavelength, excitation potential, loggf
+
 
 
 def approximate_radiative_gamma(lambda_vacuum, log_gf):

@@ -80,7 +80,9 @@ def parse_levels(lower, upper):
     for level_description in (lower, upper):
         coupling = level_description[:coupling_chars]
         if coupling not in ("LS", "JJ", "JK", "LK"):
-            return unknown
+            levels.extend([-1, -1])
+            continue
+            #return unknown
             
         # These Nones are in case we find no level information.
         level_descs = [None, None] + re.findall(f"[{all_levels}]", level_description[coupling_chars:]) 
@@ -92,22 +94,25 @@ def parse_levels(lower, upper):
             else:
                 levels.append(all_levels.index(level_desc))
 
-    llo, llo2, lhi, lhi2 = levels
+    llorbit1, llorbit2, luorbit1, luorbit2 = levels
+
+    print(levels)
     # From https://github.com/alexji/turbopy/blob/main/turbopy/linelists.py:
-    if llo >= 3 or lhi >= 3:
-        llo, lhi = (2, 3)
-    elif (llo < 0) & (lhi < 0):
+    if llorbit1 >= 3 or luorbit1 >= 3:
+        llower, lupper = (2, 3)
+    elif (llorbit1 < 0) & (luorbit1 < 0):
         return unknown
-    elif np.abs(lhi - llo) == 1:
-        pass
-    elif llo2 >= 3 or lhi2 >= 3:
-        llo, lhi = (2, 3)
+    elif np.abs(luorbit1 - llorbit1) == 1:
+        llower, lupper = (llorbit1, luorbit1)
+        #print("C")
+    elif llorbit2 >= 3 or luorbit2 >= 3:
+        llower, lupper = (2, 3)
     else:
-        ixrow = 4*llo + llo2+1
-        ixcol = 4*lhi + lhi2+1
-        llo, lhi = _all_level_map[ixrow, ixcol]
+        ixrow = 4*llorbit1 + llorbit2+1
+        ixcol = 4*luorbit1 + luorbit2+1
+        llower, lupper = _all_level_map[ixrow, ixcol]
     
-    return (all_levels[llo], all_levels[lhi])
+    return (all_levels[llower], all_levels[lupper])
 
 
 def read_extract_stellar_long_output(path):
@@ -135,7 +140,7 @@ def read_extract_stellar_long_output(path):
 
     names = (
         "species",
-        "lambda_air", 
+        "lambda_air", # TODO: Need to figure out if it's lambda_air or lambda_vac based on header
         "E_lower",
         "v_micro",
         "log_gf", 
@@ -195,9 +200,13 @@ def read_extract_all_or_extract_element(path):
     lines = content.split("\n")
 
     header_rows = 2
+
+    #  Need to figure out if it's lambda_air or lambda_vac based on header
+    lambda_key = "lambda_vacuum" if "WL_vac" in lines[1] else "lambda_air"
+
     keys_and_dtypes = (
         ("species", as_species_with_correct_charge),
-        ("lambda_air", lambda value: float(value) * u.Angstrom),
+        (lambda_key, lambda value: float(value) * u.Angstrom), 
         ("log_gf", float),
         ("E_lower", lambda value: float(value) * u.eV), # chi_lower
         ("j_lower", float),
@@ -213,7 +222,7 @@ def read_extract_all_or_extract_element(path):
         ("upper_level_desc", str),
         ("reference", str),
     )
-    data = {}
+    data = dict(lambda_air=None, lambda_vacuum=None)
     transitions = []
     for i, line in enumerate(lines[header_rows:]):
         if line.strip() == "References:":
@@ -240,13 +249,8 @@ def read_extract_all_or_extract_element(path):
             data["upper_orbital_type"] = upper_orbital_type
 
             # Now put it into a transition.
-            transitions.append(
-                Transition(
-                    lambda_vacuum=None,
-                    **data
-                )
-            )
-            data = {}
+            transitions.append(Transition(**data))
+            data = dict(lambda_air=None, lambda_vacuum=None)
 
     references = parse_references(lines[i+1:])
 

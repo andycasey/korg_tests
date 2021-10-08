@@ -15,21 +15,58 @@ _format_log_gf = lambda log_gf: "{0:< #6.3f}".format(log_gf)[:6]
 _line_template = "{line.lambda_air.value:10.3f} {line.E_lower.value:6.3f} {formatted_log_gf:s} {line.vdW_compact:8.3f} {line.g_upper:6.1f} {line.gamma_rad.value:9.2E} '{line.lower_orbital_type:s}' '{line.upper_orbital_type:s}' {line.equivalent_width:5.1f} {line.equivalent_width_error:6.1f} '{line.comment}'"
 
 
-def should_skip(transition):
+# Ionization potentials for each element. Used to identify bound-free transitions.
+_ionization_potential_neutral = [
+    13.60, 24.59,  5.39,  9.32,  8.30, 11.26, 14.53, 13.62, 17.40,
+    21.56,  5.14,  7.64,  5.99,  8.15, 10.48, 10.36, 12.97, 15.76,
+     4.34,  6.11,  6.54,  6.82,  6.74,  6.77,  7.44,  7.87,  7.86,
+     7.64,  7.73,  9.39,  6.00,  7.88,  9.81,  9.75, 11.81, 14.00,
+     4.18,  5.69,  6.38,  6.84,  6.88,  7.10,  7.28,  7.36,  7.46,
+     8.33,  7.57,  8.99,  5.79,  7.34,  8.64,  9.01, 10.45, 12.13,
+     3.89,  5.21,  5.58,  5.65,  5.42,  5.49,  5.55,  5.63,  5.68,
+     6.16,  5.85,  5.93,  6.02,  6.10,  6.18,  6.25,  5.43,  7.00,
+     7.88,  7.98,  7.87,  8.50,  9.10,  9.00,  9.22, 10.44,  6.11,
+     7.42,  7.29,  8.42,  9.30, 10.75,  4.00,  5.28,  6.90,  6.08,
+     9.99,  6.00
+]
+_ionization_potential_singly_charged = [
+      .00, 54.42, 75.64, 18.21, 25.15, 24.38, 29.60, 35.12, 35.00,
+    40.96, 47.29, 15.03, 18.83, 16.35, 19.72, 23.33, 23.81, 27.62,
+    31.63, 11.87, 12.80, 13.58, 14.65, 16.50, 15.64, 16.18, 17.06,
+    18.17, 20.29, 17.96, 20.51, 15.93, 18.63, 21.19, 21.60, 24.36,
+    27.50, 11.03, 12.24, 13.13, 14.32, 16.15, 15.26, 16.76, 18.07,
+    19.42, 21.49, 16.90, 18.87, 14.63, 16.53, 18.60, 19.13, 21.21,
+    25.10, 10.00, 11.06, 10.85, 10.55, 10.73, 10.90, 11.07, 11.25,
+    12.10, 11.52, 11.67, 11.80, 11.93, 12.05, 12.17, 13.90, 14.90,
+    16.20, 17.70, 16.60, 17.50, 20.00, 18.56, 20.50, 18.76, 20.43,
+    15.03, 16.68, 19.00, 20.00, 21.00, 22.00, 10.14, 12.10, 11.50,
+    99.99, 12.00
+]
+
+
+def should_keep(transition, return_reason=False):
     """
-    Returns a boolean flag whether a transition should be excluded (True) or included (False)
+    Returns a boolean flag whether a transition should be excluded (False) or included (True)
     from Turbospectrum.
 
     The logic here follows that from the VALD export script by Bertrand Plez.
     """
-    if not (2 > transition.species >= 0) \
-    or transition.E_lower >= (15 * u.eV):
-        return True
-
-    # TODO: autoionization lines.
-    # why Z < 3 for any? that would exclude MgH, etc.
+    reason = None
     
-    return False
+    if transition.species.charge not in (0, 1):
+        reason = "Not a neutral or singly ionised species."
+    elif transition.E_lower >= (15 * u.eV):
+        reason = "Lower excitation potential exceeds 15 eV."
+    elif (len(transition.species.atoms) == 1 and transition.species.atoms[0] in ("H", "He")):
+        reason = "Skipping H and He atomic lines."
+    elif not transition.is_molecule and transition.species.charge == 0 \
+        and transition.E_upper.to("eV").value > _ionization_potential_neutral[transition.species.Zs[-1] - 1]:
+        reason = f"Neutral atomic species is a bound-free transition ({transition.E_upper.value} > {_ionization_potential_neutral[transition.species.Zs[-1] - 1]})."
+    elif not transition.is_molecule and transition.species.charge == 1 \
+        and transition.E_upper.to("eV").value > _ionization_potential_singly_charged[transition.species.Zs[-1] - 1]:
+        reason = f"Singly ionized atomic species is a bound free transition ({transition.E_upper.value} > {_ionization_potential_singly_charged[transition.species.Zs[-1] - 1]})."
+    
+    return reason if return_reason else reason is None
 
 
 def update_missing_transition_data(transition):
@@ -41,10 +78,12 @@ def update_missing_transition_data(transition):
     This returns a copy of the transition, with the updated data.
     """
     t = transition.copy()
-    if np.isclose(t.vdW, 0, atol=1-e5):
+    if np.isclose(t.vdW, 0, atol=1e-5):
         t.vdW = lookup_approximate_vdW(t)
     
     t.gamma_rad = parse_gamma_rad(t)
+    t.equivalent_width = t.equivalent_width or 0
+    t.equivalent_width_error = t.equivalent_width_error or 1.0
     t.lower_orbital_type = t.lower_orbital_type or "X"
     t.upper_orbital_type = t.upper_orbital_type or "X"
     return t
@@ -53,7 +92,7 @@ def update_missing_transition_data(transition):
 def parse_gamma_rad(transition):
     #https://github.com/bertrandplez/Turbospectrum2019/blob/master/Utilities/vald3line-BPz-freeformat.f#L420-428
 
-    if np.isclose(transition.gamma_rad.value, 0, atol=1e-5)
+    if np.isclose(transition.gamma_rad.value, 0, atol=1e-5):
         return 1e5 * (1/u.s)
     elif transition.gamma_rad.value > 3:
         return 10**transition.gamma_rad.value * (1/u.s)
@@ -85,7 +124,10 @@ def lookup_approximate_vdW(transition):
             try:
                 return ionized_damping[transition.species.atoms[0]]
             except KeyError:
-                return default_value
+                return default_value   
+        else:
+            # We shouldn't even be bothering with these highly ionized species!
+            return default_value
     else:
         return default_value
 
@@ -148,7 +190,12 @@ def read_transitions(path):
     return Transitions(transitions)
     
 
-def write_transitions(transitions, path):
+def write_transitions(
+        transitions, 
+        path, 
+        skip_irrelevant_transitions=False,
+        update_missing_data=False,
+    ):
     """
     Write transitions to disk in a format that Turbospectrum accepts.
     
@@ -157,11 +204,22 @@ def write_transitions(transitions, path):
     
     :param path:
         The path to store the transitions on disk.
+
+    :param skip_irrelevant_transitions: [optional]
+        Skip over transitions that Bertrand Plez considers irrelevant, based on Plez's script for
+        translating VALD-formatted line lists to Turbospectrum format (default: False).
+
+    :param update_missing_data: [optional]
+        Update the transitions with missing data values from a lookup table using the 
+        `grok.radiative_transfer.turbospectrum.update_missing_transition_data` function (default: False).
     """
+
+    if skip_irrelevant_transitions:
+        transitions = Transitions(filter(should_keep, transitions))
 
     # Sort the right way.
     group_names = list(map(str, sorted(set([float(line.species.compact) for line in transitions]))))
-    
+
     lines = []
     for i, group_name in enumerate(group_names):
 
@@ -191,7 +249,7 @@ def write_transitions(transitions, path):
 
             # Turbospectrum makes some approximations and lookups if the input values are not what
             # they want.
-            updated_line = update_missing_transition_data(line)
+            updated_line = update_missing_transition_data(line) if update_missing_data else line
             lines.append(
                 _line_template.format(
                     line=updated_line,
