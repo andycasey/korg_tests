@@ -96,7 +96,6 @@ def parse_levels(lower, upper):
 
     llorbit1, llorbit2, luorbit1, luorbit2 = levels
 
-    print(levels)
     # From https://github.com/alexji/turbopy/blob/main/turbopy/linelists.py:
     if llorbit1 >= 3 or luorbit1 >= 3:
         llower, lupper = (2, 3)
@@ -104,7 +103,6 @@ def parse_levels(lower, upper):
         return unknown
     elif np.abs(luorbit1 - llorbit1) == 1:
         llower, lupper = (llorbit1, luorbit1)
-        #print("C")
     elif llorbit2 >= 3 or luorbit2 >= 3:
         llower, lupper = (2, 3)
     else:
@@ -112,6 +110,18 @@ def parse_levels(lower, upper):
         ixcol = 4*luorbit1 + luorbit2+1
         llower, lupper = _all_level_map[ixrow, ixcol]
     
+    # The code above does not cover all cases.
+    if llower < 0 and lupper >= 0:
+        if lupper == 0:
+            llower = 1
+        else:
+            llower = lupper - 1
+    if llower >= 0 and lupper < 0:
+        if llower == 0:
+            lupper = 1
+        else:
+            lupper = llower - 1
+
     return (all_levels[llower], all_levels[lupper])
 
 
@@ -248,6 +258,14 @@ def read_extract_all_or_extract_element(path):
             data["lower_orbital_type"] = lower_orbital_type
             data["upper_orbital_type"] = upper_orbital_type
 
+            # Build the comment card.
+            lower_coupling = (data["lower_level_desc"][:2].strip() + "__")[:2]
+            upper_coupling = (data["upper_level_desc"][:2].strip() + "__")[:2]
+            lower = re.sub(' +', ' ', data["lower_level_desc"][2:].strip())
+            upper = re.sub(' +', ' ', data["upper_level_desc"][2:].strip())
+
+            data["comment"] = f"{data['species']} {lower_coupling}:{lower} {upper_coupling}:{upper}"
+            
             # Now put it into a transition.
             transitions.append(Transition(**data))
             data = dict(lambda_air=None, lambda_vacuum=None)
