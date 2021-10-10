@@ -68,6 +68,8 @@ def parse_meta(contents):
     pradk, = re.findall("PRADK (?P<pradk>[\dE\-\.\+]+)", contents)
     meta["pradk"] = float(pradk)
     meta["m_h"] = np.log10(meta["abundance_scale"])
+    # TODO: Actually calculate the abundance by subtracting Solar, instead of this hack.
+    meta["alpha_m"] = meta["log10_normalized_abundance_O"] + 3.21,
     return meta
 
 
@@ -106,6 +108,10 @@ def read_atlas9(fp_or_path, structure_start=23):
     descriptions = { k: desc for k, (desc, unit) in column_descriptions.items() if k in data }
     units = { k: unit for k, (desc, unit) in column_descriptions.items() if k in data }
     
+    # The grid dimensions for these kinds of photospheres is usually:
+    # teff, logg, metallicity, alpha, microturbulence
+    meta["grid_keywords"] = ("teff", "logg", "m_h", "alpha_m", "microturbulence")
+
     return Photosphere(
         data=data,
         units=units,

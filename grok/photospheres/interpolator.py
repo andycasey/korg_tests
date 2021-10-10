@@ -3,18 +3,76 @@ import numpy as np
 import pickle
 from scipy import interpolate
 from tqdm import tqdm
-
+import warnings
 
 from .photosphere import Photosphere
 
 class PhotosphereInterpolator(object):
 
-    def __init__(self, photospheres, point_callable, callback=None):
+    def __init__(self, photospheres, grid_keywords=None):
 
         self.photospheres = photospheres
-        self.point_callable = point_callable
-        self.callback = callback
-    
+
+        # Build the grid of points.
+        if grid_keywords is None:
+            grid_keywords = tuple(self.photospheres[0].meta["grid_keywords"])
+        self.grid_keywords = grid_keywords
+
+        return None
+        
+
+    @property
+    def grid_points(self):
+        try:
+            return self._grid_points
+        except AttributeError:
+            self._grid_points = np.array([
+                [p.meta[k] for k in self.grid_keywords] for p in self.photospheres
+            ])
+
+            # Check for duplicates.
+            remove_indices = []
+            for i, column in enumerate(self._grid_points.T):
+                if np.unique(column).size == 1:
+                    # Warn, then remove.
+                    warnings.warn(
+                        f"Column index {i} ({self.grid_keywords[i]}) only has a single value: {column[0]}. "
+                        f"Excluding it from interpolator dimensions."
+                    )
+                    remove_indices.append(i)
+            
+            if remove_indices:
+                self.grid_keywords = tuple([kw for i, kw in enumerate(self.grid_keywords) if i not in remove_indices])
+                N, D = self._grid_points.shape
+                mask = np.ones(D, dtype=bool)
+                mask[remove_indices] = False
+                self._grid_points = self._grid_points[:, mask]
+            
+            unique = np.unique(self._grid_points, axis=0)
+            if self._grid_points.shape != unique.shape:
+
+                # Get an example.
+                p_ = self._grid_points.view([('', self._grid_points.dtype)] * self._grid_points.shape[1])
+                u_ = unique.view([('', unique.dtype)] * unique.shape[1])
+
+                for each in u_:
+                    match = (each == p_)
+                    if sum(match) > 1:
+                        example = f"Indices {tuple(np.where(match)[0])} have the same grid parameters: {each[0]}."
+                        break
+                        
+                raise ValueError(
+                    "There are duplicate points specified. It's likely that the photospheres have "
+                    "additional values in the library that are not accounted for in the `grid_keywords` "
+                    "meta. For example: the library of photospheres includes (teff, logg, fe_h, alpha_fe) "
+                    "for each photosphere, but in the meta `grid_keywords` for each photosphere it is only"
+                    "returning (teff, logg, fe_h) so there are multiple photospheres at each point. "
+                    "For example:\n\n" + example + "\n\n "
+                    "You can override the default `grid_keywords` when initiating the `PhotosphereInterpolator.`"
+                )
+
+        return self._grid_points
+
 
     def write(self, path):
         """
@@ -39,13 +97,12 @@ class PhotosphereInterpolator(object):
                 structure[i, j, :len(_structure)] = _structure
                 
         contents = {
-            "points": self.points,
+            "points": self.grid_points,
             "column_names": column_names,
             "structure": structure,
             "meta": [p.meta for p in self.photospheres],
-            "point_callable": self.point_callable,
-            "callback": self.callback
         }
+        raise NotImplementedError()
 
         with open(path, "wb") as fp:
             pickle.dump(contents, fp)
@@ -71,62 +128,31 @@ class PhotosphereInterpolator(object):
         raise a
 
 
-    @property
-    def points(self):
-        try:
-            return self._points
-        except:
-            self._points = np.atleast_2d(list(map(self.point_callable, self.photospheres)))
-
-            # Check for duplicates.
-            for i, column in enumerate(self.points.T):
-                if np.unique(column).size == 1:
-                    raise ValueError(f"Column index {i} only has a single value: {column[0]}")
-
-            unique = np.unique(self.points, axis=0)
-            if self.points.shape != unique.shape:
-
-                # Get an example.
-                p_ = self.points.view([('', self.points.dtype)] * self.points.shape[1])
-                u_ = unique.view([('', unique.dtype)] * unique.shape[1])
-
-                for each in u_:
-                    match = (each == p_)
-                    if sum(match) > 1:
-                        example = f"Indices {tuple(np.where(match)[0])} have the same grid parameters: {each[0]}."
-                        break
-                        
-                raise ValueError(
-                    "There are duplicate points specified. It's likely that the photospheres have "
-                    "additional values in the library that are not accounted for in your `point_callable` "
-                    "function. For example: the library of photospheres includes (teff, logg, fe_h, alpha_fe) "
-                    "for each photosphere, but you are only returning (teff, logg, fe_h) with `point_callable`, "
-                    "so there are multiple photospheres at each point. For example:\n\n" + example
-                )
-
-            return self._points
-
 
     def nearest_neighbour_indices(self, point, n):
         """
         Return the indices of the n nearest neighbours to the point.
         """
 
-        distances = np.sum(((point - self.points) / np.ptp(self.points, axis=0))**2, axis=1)
+        distances = np.sum(((point - self.grid_points) / np.ptp(self.grid_points, axis=0))**2, axis=1)
         return distances.argsort()[:n]
 
 
-    def __call__(self, *point, method="linear", rescale=True, neighbours=30):
+    def __call__(self, method="linear", rescale=True, neighbours=30, **point):
         """
         Interpolate a photospheric structure at the given stellar parameters.
         """
 
+        missing_keys = set(self.grid_keywords).difference(point)
+        if missing_keys:
+            raise ValueError(f"Missing keyword arguments: {', '.join(missing_keys)}")
+        
         opacity_column_name = "RHOX"
         interpolate_column_names = [n for n in self.photospheres[0].dtype.names[1:] if n != opacity_column_name]
 
-        point = np.array(point)
+        point = np.array([point[k] for k in self.grid_keywords])
 
-        lower, upper = (np.min(self.points, axis=0), np.max(self.points, axis=0))
+        lower, upper = (np.min(self.grid_points, axis=0), np.max(self.grid_points, axis=0))
         is_lower, is_upper = (point < lower, point > upper)
         if np.any(is_lower) or np.any(is_upper):
             is_bad = is_lower + is_upper
@@ -137,7 +163,7 @@ class PhotosphereInterpolator(object):
                 f"(lower: {lower[indices]}, upper: {upper[indices]})"
             )
 
-        grid_index = np.all(self.points == point, axis=1)
+        grid_index = np.all(self.grid_points == point, axis=1)
         if np.any(grid_index):
             grid_index = np.where(grid_index)[0][0]
             return self.photospheres[grid_index]
@@ -146,11 +172,11 @@ class PhotosphereInterpolator(object):
         neighbour_indices = self.nearest_neighbour_indices(point, neighbours)
 
         # Protect Qhull from columns with a single value.
-        cols = _protect_qhull(self.points[neighbour_indices])  
+        cols = _protect_qhull(self.grid_points[neighbour_indices])  
         
         kwds = {
             "xi": point[cols].reshape(1, len(cols)),
-            "points": self.points[neighbour_indices][:, cols],
+            "points": self.grid_points[neighbour_indices][:, cols],
             "values": np.array([self.photospheres[ni][opacity_column_name] for ni in neighbour_indices]),
             "method": method,
             "rescale": rescale
@@ -186,8 +212,9 @@ class PhotosphereInterpolator(object):
             meta=meta
         )
 
-        if isinstance(self.callback, callable):
-            photosphere = self.callback(photosphere, point)
+        # Update the meta keywords for interpolated properties.
+        for key in self.grid_keywords:
+            photosphere.meta[key] = point[key]
 
         return photosphere
 
