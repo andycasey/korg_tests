@@ -72,7 +72,7 @@ class Transition(object):
             #raise NotImplementedError("check to see how this is packed in MOOG vs others")
             None
             
-        gamma_rad = gamma_rad or approximate_radiative_gamma(lambda_vacuum, log_gf)
+        #gamma_rad = gamma_rad or approximate_radiative_gamma(lambda_vacuum, log_gf)
                     
         # Store everything.
         self._lambda_vacuum = lambda_vacuum
