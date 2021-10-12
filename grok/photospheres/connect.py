@@ -19,7 +19,8 @@ class PhotosphereRead(registry.UnifiedReadWrite):
         out._set_column_attribute('description', descriptions)
 
         # Set the read format.
-        out.meta["read_format"] = kwargs.get("format", None)
+        if "read_format" not in out.meta:
+            out.meta["read_format"] = kwargs.get("format", None)
         return out
 
 

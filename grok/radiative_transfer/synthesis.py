@@ -54,7 +54,9 @@ def synthesize(
 
     options = options or dict()
     dir = mkdtemp(**(mkdtemp_kwargs or dict()))
-
+    if verbose:
+        print(f"Running in {dir}")
+    
     result = _synthesize(
         photosphere,
         transitions,

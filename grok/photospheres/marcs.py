@@ -18,7 +18,7 @@ def parse_meta(contents):
         "\s+(?P<flux>[\d\.E\-\+]+)\s+Flux \[(?P<flux_unit>.+)\]\n",
         "\s+(?P<logg>[\d\.E\-\+]+)\s+Surface gravity \[(?P<surface_gravity_unit>.+)\]\n",
         "\s+(?P<microturbulence>[\d\.]+)\s+Microturbulence parameter \[(?P<microturbulence_unit>.+)\]\n",
-        "\s+(?P<mass>[\d\.]+)\s+(No m|m)ass.+\n", #\s+Mass \[(?P<mass_unit>.+)\]\n"
+        "\s+(?P<mass>[\d\.]+)\s+(No m|m|M)ass.+\n", #\s+Mass \[(?P<mass_unit>.+)\]\n"
         "\s+(?P<m_h>[\d\.\+\-]+)\s(?P<alpha_m>[\d\-\.\+]+) Metallicity.+\n",
         "\s+(?P<radius>[\d\.E\-\+]+).+(1 cm r|R)adius.+\n", #Radius \[(?P<radius_unit>.+)\] at Tau\(Rosseland\)=(?P<tau_rosseland_at_radius>[\d\.]+)\n"    
         "\s+(?P<luminosity>[\d\.E\-\+]+) Luminosity \[(?P<luminosity_unit>.+)\].*\n",
@@ -79,7 +79,9 @@ def parse_meta(contents):
     # actually log10(surface gravity), it's just surface gravity.
     meta["logg"] = np.log10(meta["logg"])
 
-    # 
+    # TODO: probably more than that
+    meta["grid_keywords"] = ("teff", "logg", "m_h",  "alpha_m", "microturbulence", "mass")
+    meta["read_format"] = "marcs"
     return meta
 
 

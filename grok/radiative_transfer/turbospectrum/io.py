@@ -1,3 +1,4 @@
+import gzip
 import numpy as np
 from textwrap import dedent
 from astropy.io import registry
@@ -16,6 +17,18 @@ def write_photosphere_for_turbospectrum(photosphere, path):
         The path to store the photosphere.    
     """
 
+    # TODO: A hack because we are testing things without interpolation here.
+    if photosphere.meta.get("read_format", None) == "marcs":
+        print(f"WARNING: Copying MARCS file directly. I hope you're not interpolating atmospheres!")
+
+        original_path = photosphere.meta["filename"]
+        can_opener = gzip.open if original_path.lower().endswith(".gz") else open
+        with can_opener(original_path, "r") as fp:
+            content = fp.read()
+        with open(path, "w") as fp:
+            fp.write(content.decode("utf-8"))
+        return None
+
     # TODO: Turbospectrum describes this format as 'KURUCZ', but it looks like an ATLAS-style format to me.
     # NOTE: Turbospectrum does not read the abundance information from the photosphere. It reads it from the control file.
     output = (
@@ -31,5 +44,7 @@ def write_photosphere_for_turbospectrum(photosphere, path):
     with open(path, "w") as fp:
         fp.write(output)
     return None
+
+
 
 registry.register_writer("turbospectrum", Photosphere, write_photosphere_for_turbospectrum)

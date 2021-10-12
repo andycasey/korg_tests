@@ -270,7 +270,7 @@ def read_extract_all_or_extract_element(path):
             transitions.append(Transition(**data))
             data = dict(lambda_air=None, lambda_vacuum=None)
 
-    references = parse_references(lines[i+1:])
+    #references = parse_references(lines[i+1:])
 
     # TODO: Assign the references back to the individual transitions?
     return Transitions(transitions)

@@ -5,6 +5,7 @@ import subprocess
 from collections import OrderedDict
 from pkg_resources import resource_stream
 from tempfile import mkdtemp
+from time import time
 
 from grok.transitions import Transitions
 from grok.radiative_transfer.moog.io import parse_summary_synth_output
@@ -14,6 +15,7 @@ from grok.utils import copy_or_write
 def moog_synthesize(
         photosphere,
         transitions,
+        strong_transitions=None,
         lambdas=None,
         abundances=None,
         isotopes=None,
@@ -62,7 +64,9 @@ def moog_synthesize(
     else:
         # You're living dangerously!
         use_transitions = transitions
-        
+    
+    print(f"Writing {len(use_transitions)} to {lines_in}")
+
     copy_or_write(
         use_transitions,
         lines_in,
@@ -98,6 +102,26 @@ def moog_synthesize(
             lines_flag=3
         ))
 
+    if strong_transitions is not None:
+        stronglines_in = _path("stronglines.in")
+        copy_or_write(
+            strong_transitions,
+            stronglines_in,
+            format=kwargs.get("transitions_format", "moog"),
+            # MOOG likes a blank header for a transition list, but not for a strong transition list.
+            # because of course that makes sense
+            include_header=False
+        )
+        kwds.update(
+            stronglines_in=os.path.basename(stronglines_in),
+            strong_flag=1,
+        )
+    else:
+        kwds.update(
+            stronglines_in="",
+            strong_flag=0
+        )
+        
     # Abundances.
     if abundances is None:
         kwds["abundances_formatted"] = "0 1"
@@ -125,6 +149,9 @@ def moog_synthesize(
         fp.write(contents)
 
     # Execute MOOG(SILENT).
+    print(f"Executing MOOGSILENT in {_path('')}")
+
+    t_init = time()
     process = subprocess.run(
         ["MOOGSILENT"],
         stdout=subprocess.PIPE,
@@ -133,6 +160,7 @@ def moog_synthesize(
         input=os.path.basename(control_path) + "\n"*100,
         encoding="ascii"
     )
+    t_moogsilent = time() - t_init
     if process.returncode != 0:
         raise RuntimeError(process.stderr)
 
@@ -147,6 +175,7 @@ def moog_synthesize(
     ])
     
     meta["dir"] = dir
+    meta["wallclock_time"] = t_moogsilent
     
     return (spectrum, meta)
     

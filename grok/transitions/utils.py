@@ -18,10 +18,10 @@ def vacuum_to_air(lambdas):
     except:
         raise ValueError("Missing units on lambdas.")
     
-    s = 10**4 / lambdas.to("Angstrom").value
+    values = lambdas.to("Angstrom").value
+    s = 10**4 / values
     n = 1 + 0.0000834254 + 0.02406147 / (130 - s**2) + 0.00015998 / (38.9 - s**2)
-    air_wavelength = lambdas / n
-    return air_wavelength * unit
+    return (values / n) * unit
 
 
 def air_to_vacuum(lambdas):
@@ -38,10 +38,11 @@ def air_to_vacuum(lambdas):
     except:
         raise ValueError("Missing units on lambdas.")
     
-    s = 10**4 / lambdas.to("Angstrom").value
+    values = lambdas.to("Angstrom").value
+    s = 10**4 / values
     n = 1 + 0.00008336624212083 + 0.02408926869968 / (130.1065924522 - s**2) + 0.0001599740894897 / (38.92568793293 - s**2)
-    return lambdas * n
-
+    return values * n * unit
+    
 
 '''
 common_molecule_name2Z = {

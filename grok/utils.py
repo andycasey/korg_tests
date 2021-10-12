@@ -1,7 +1,34 @@
+import numpy as np
 import gzip
 import os
+from astropy.io import fits
 from io import FileIO, StringIO
 from shutil import copy
+
+def read_benchmark_star(path):
+    """
+    Read a benchmark star spectrum that was downloaded from https://www.blancocuaresma.com/s/benchmarkstars
+    
+    :param path:
+        The path to the FITS file.
+    
+    :returns:
+        A three length tuple containing the wavelength (in Angstroms), flux, and flux uncertainty.
+    """
+
+    with fits.open(path) as image:
+        flux = image[0].data
+        sigma = image[1].data
+        wl = image[0].header["CRVAL1"] \
+           + np.arange(flux.size) * image[0].header["CDELT1"]
+
+        if image[0].header["CUNIT1"] == "NM":
+            wl *= 10.0
+        else:
+            raise NotImplementedError
+        
+    return (wl, flux, sigma)
+
 
 
 def safe_open(fp_or_path):

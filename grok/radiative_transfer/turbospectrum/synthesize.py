@@ -3,6 +3,7 @@ import numpy as np
 import subprocess
 from collections import OrderedDict
 from pkg_resources import resource_stream
+from time import time
 
 from grok.radiative_transfer.utils import get_default_lambdas
 from grok.utils import copy_or_write
@@ -16,6 +17,10 @@ def turbospectrum_bsyn(
         opacities=None,
         verbose=False,
         dir=None,
+        include_hydrogen_transitions=False,
+        transition_format="turbospectrum",
+        skip_irrelevant_transitions=True,
+        update_missing_data=True,
         **kwargs
     ):
     """
@@ -68,11 +73,20 @@ def turbospectrum_bsyn(
     # TODO: Need to find out if that's ever a legitamite use case. Otherwise let's merge
     #       all to one file.
     T = 1
+    kwds = dict(
+        format=transition_format,
+        skip_irrelevant_transitions=skip_irrelevant_transitions,
+        update_missing_data=update_missing_data
+    )
     copy_or_write(
         transitions,
         _path(transition_basename_format.format(i=0)), 
-        format=kwargs.get("transition_format", "turbospectrum")
+        **kwds
     )
+    transition_paths_formatted = [transition_basename_format.format(i=i) for i in range(T)]
+    if include_hydrogen_transitions:
+        transition_paths_formatted.append("DATA/Hlinedata")
+        T += 1
 
     # Write photosphere.
     copy_or_write(
@@ -85,8 +99,8 @@ def turbospectrum_bsyn(
         lambda_min=lambda_min,
         lambda_max=lambda_max,
         lambda_delta=lambda_delta,
-        marcs_file_flag_str=".false.",
-        metallicity=0,          # TODO: parse from abundances
+        marcs_file_flag=".true." if photosphere.meta["read_format"] == "marcs" else ".false.",
+        metallicity=photosphere.meta["m_h"],          
         alpha_fe=0,             # TODO: parse from abundances
         helium_abundance=0,     # TODO: parse from abundances
         r_process_abundance=0,  # TODO: parse from abundances
@@ -94,11 +108,9 @@ def turbospectrum_bsyn(
         modelinput_basename=modelinput_basename,
         modelopac_basename=modelopac_basename,
         result_basename=result_basename,
-        microturbulence=2.0, # TODO
-        N_transition_paths=T,
-        transition_paths_formatted="\n".join(
-            [transition_basename_format.format(i=i) for i in range(T)]
-        )
+        microturbulence=photosphere.meta["microturbulence"],
+        N_transition_paths=len(transition_paths_formatted),
+        transition_paths_formatted="\n".join(transition_paths_formatted)
     )
 
     if abundances is not None or isotopes is not None:
@@ -128,6 +140,7 @@ def turbospectrum_bsyn(
             fp.write(babsma_contents)
 
         # Execute Turbospectrum's babsma
+        t_init = time()
         process = subprocess.run(
             ["babsma_lu"],
             cwd=dir,
@@ -136,6 +149,7 @@ def turbospectrum_bsyn(
             input=babsma_contents,
             encoding="ascii"
         )
+        t_babsma_lu = time() - t_init
         if process.returncode != 0:
             raise RuntimeError(process.stderr)
             
@@ -151,6 +165,7 @@ def turbospectrum_bsyn(
         fp.write(contents)
 
     # Execute Turbospectrum's bsyn_lu
+    t_init = time()
     process = subprocess.run(
         ["bsyn_lu"],
         cwd=dir,
@@ -159,6 +174,7 @@ def turbospectrum_bsyn(
         input=contents,
         encoding="ascii"
     )
+    t_bsyn_lu = time() - t_init
     if process.returncode != 0:
         raise RuntimeError(process.stderr)
 
@@ -176,6 +192,7 @@ def turbospectrum_bsyn(
     
     meta = dict(
         dir=dir,
+        wallclock_time=t_bsyn_lu + t_babsma_lu
         # TODO: lots of stuff..
     )
 

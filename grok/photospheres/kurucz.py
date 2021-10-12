@@ -76,7 +76,7 @@ def parse_meta(contents):
     meta["m_h"] = meta["log10_normalized_abundance_Fe"] - meta["log10_normalized_abundance_H"] + 12 - 7.45
     
     # TODO: Should we just calculate abundances for ease?
-
+    meta["grid_keywords"] = ("teff", "logg", "m_h")
     return meta
 
 

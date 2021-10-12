@@ -39,8 +39,8 @@ def read_ges(path):
         j_upper = float(j_upper)
         E_upper = float(E_upper) * u.eV
 
-        rad_damp = float(rad_damp)
-        stark_damp = float(stark_damp)
+        rad_damp = float(rad_damp) * (1/u.s)
+        stark_damp = float(stark_damp) * (1/u.s)
         vdw_damp = float(vdw_damp)
 
         species = Species(f"{element} {charge}")

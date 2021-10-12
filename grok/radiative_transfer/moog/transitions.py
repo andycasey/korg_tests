@@ -67,7 +67,7 @@ _moog_amu = [1.008,4.003,6.941,9.012,10.81,12.01,14.01,16.00,19.00,20.18,
             231.0,238.0,237.0,244.0,243.0]
 
 
-def write_moog(transitions, path):
+def write_moog(transitions, path, include_header=False):
     """
     Write a list of atomic and molecular transitions to disk in a format that
     is friendly to MOOG.
@@ -82,7 +82,8 @@ def write_moog(transitions, path):
     fmt = "{:10.3f}{: >10}{:10.3f}{:10.3f}{}{}{}{}"
     space = " "*10
     with open(path, "w") as f:
-        f.write("\n")
+        if include_header:
+            f.write("\n")
 
         for line in sorted(transitions, key=lambda l: l.lambda_air):
             C6 = "{:10.3f}".format(line.vdW) if np.isfinite(line.vdW) else space

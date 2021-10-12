@@ -60,10 +60,10 @@ def should_keep(transition, return_reason=False):
     elif (len(transition.species.atoms) == 1 and transition.species.atoms[0] in ("H", "He")):
         reason = "Skipping H and He atomic lines."
     elif not transition.is_molecule and transition.species.charge == 1 \
-        and transition.E_upper.to("eV").value > _ionization_potential_p1[transition.species.Zs[-1] - 1]:
+        and transition.E_upper is not None and transition.E_upper.to("eV").value > _ionization_potential_p1[transition.species.Zs[-1] - 1]:
         reason = f"Neutral atomic species is a bound-free transition ({transition.E_upper.value} > {_ionization_potential_p1[transition.species.Zs[-1] - 1]})."
     elif not transition.is_molecule and transition.species.charge == 2 \
-        and transition.E_upper.to("eV").value > _ionization_potential_p2[transition.species.Zs[-1] - 1]:
+        and transition.E_upper is not None and transition.E_upper.to("eV").value > _ionization_potential_p2[transition.species.Zs[-1] - 1]:
         reason = f"Singly ionized atomic species is a bound free transition ({transition.E_upper.value} > {_ionization_potential_p2[transition.species.Zs[-1] - 1]})."
     
     return reason if return_reason else reason is None
@@ -191,8 +191,8 @@ def read_transitions(path):
 def write_transitions(
         transitions, 
         path, 
-        skip_irrelevant_transitions=True,
-        update_missing_data=True,
+        skip_irrelevant_transitions=False,
+        update_missing_data=False,
     ):
     """
     Write transitions to disk in a format that Turbospectrum accepts.
@@ -229,9 +229,14 @@ def write_transitions(
         # Add header information.
         species = group[0].species
 
-        formula = "".join([f"{Z:0>2.0f}" for Z in species.Zs if Z > 0])
-        isotope = "".join([f"{I:0>3.0f}" for Z, I in zip(species.Zs, species.isotopes) if Z > 0])
-
+        # Sort so we represent TiO as 822, etc.
+        indices = [index for index in np.argsort(species.Zs) if species.Zs[index] > 0]
+        
+        #formula = "".join([f"{Z:0>2.0f}" for Z in species.Zs if Z > 0])
+        #isotope = "".join([f"{I:0>3.0f}" for Z, I in zip(species.Zs, species.isotopes) if Z > 0])
+        formula = "".join([f"{species.Zs[index]:0>2.0f}" for index in indices])
+        isotope = "".join([f"{species.isotopes[index]:0>3.0f}" for index in indices])
+        
         # Left-pad and strip formula.
         formula = formula.lstrip("0")
         formula = f"{formula: >4}"

@@ -67,9 +67,9 @@ def parse_meta(contents):
 
     pradk, = re.findall("PRADK (?P<pradk>[\dE\-\.\+]+)", contents)
     meta["pradk"] = float(pradk)
-    meta["m_h"] = np.log10(meta["abundance_scale"])
+    meta["m_h"] = np.round(np.log10(meta["abundance_scale"]), 2)
     # TODO: Actually calculate the abundance by subtracting Solar, instead of this hack.
-    meta["alpha_m"] = meta["log10_normalized_abundance_O"] + 3.21,
+    meta["alpha_m"] = meta["log10_normalized_abundance_O"] + 3.21
     return meta
 
 
