@@ -159,6 +159,17 @@ def read_marcs(fp_or_path, structure_start=25):
         descriptions=descriptions,
         meta=meta
     )
+
+    # Amazingly, despite the number of columns here, the MARCS models in ".mod"
+    # format do not store electron density. That is stored in the Kurucz format.
+    # We might be able to calculate it, but I'm not certain we'd be doing it
+    # self-consistently. Instead we are going to load the Kurucz equivalent
+    # photosphere and supplement this one with electron density.
+    
+    # TODO: This is an awful hack that relies on you having both MARCS formats.
+    #       It's only necessary for MOOG. God it's all a hack.
+    alt_filename = filename.replace("marcs_mod", "marcs_krz").replace(".mod", ".krz")
+    photosphere["XNE"] = Photosphere.read(alt_filename)["XNE"]
     return photosphere
 
 def identify_marcs(origin, *args, **kwargs):

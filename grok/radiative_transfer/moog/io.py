@@ -9,7 +9,7 @@ default_molecules = (
     606, 106, 607, 608, 107, 108, 112, 707, 708, 808, 12.1, 60808, 10108, 101, 6.1, 7.1, 8.1, 822, 22.1
 )
 
-def write_photosphere_for_moog(photosphere, path, format=None, include_molecules=default_molecules):
+def write_photosphere_for_moog(photosphere, path, include_molecules=default_molecules):
     """
     Write a photosphere to disk in a format that is known to MOOG.
     
@@ -19,29 +19,24 @@ def write_photosphere_for_moog(photosphere, path, format=None, include_molecules
     :param path:
         The path to store the photosphere.
     
-    :param format:
-        The format to write for the photosphere. This can be one of:
-
-        - WEBMARCS
-        - KURUCZ
     """
 
-    if format is None:
-        # Try to intelligently figure it out.
-        if "XNE" in photosphere.dtype.names:
-            return write_photosphere_for_moog(photosphere, path, format="KURUCZ")
-        else:
-            return write_photosphere_for_moog(photosphere, path, format="WEBMARCS")
-
-
+    format = "KURUCZ"        
+    if photosphere.meta["read_format"] == "marcs":
+        # TODO: Consider if this would be resolved by common names when loading the photospheres in.
+        line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{line[Pg]:10.3e}{line[XNE]:10.3e}{line[KappaRoss]:10.3e}"
+    else:
+        line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{line[P]:10.3e}{line[XNE]:10.3e}{line[ABROSS]:10.3e}"
+        
+    '''
     available_formats = {
         #"NEWMARCS": " {line[lgTau5]:.8e} {line[T]:10.3e}{line[Pe]:10.3e}{line[Pg]:10.3e}{rho}{line[KappaRoss]:10.3e}"
         # WEBMARCs wants Ne, but if we give Pe then MOOG will convert it.
         # Recall: Ne = (Pe [dyn/cm^2] / T [K]) / (k_Boltzmann [erg / K])
-        "WEBMARCS": " {i:>3.0f} {i:>3.0f} {line[lgTau5]:10.3e} {i:>3.0f} {line[T]:10.3e} {line[Pe]:10.3e} {line[Pg]:10.3e}",
+        #"WEBMARCS": " {i:>3.0f} {i:>3.0f} {line[lgTau5]:10.3e} {i:>3.0f} {line[T]:10.3e} {line[Pe]:10.3e} {line[Pg]:10.3e}",
         "KURUCZ": " {line[RHOX]:.8e} {line[T]:10.3e}{line[P]:10.3e}{line[XNE]:10.3e}{line[ABROSS]:10.3e}",
         #"NEXTGEN":
-        "BEGN": " {line[lgTauR]:.8e} {line[T]:10.3e}{line[Pe]:10.3e}{line[Pg]:10.3e}{line[Mu]:10.3e}{line[KappaRoss]:10.3e}"
+        #"BEGN": " {line[lgTauR]:.8e} {line[T]:10.3e}{line[Pe]:10.3e}{line[Pg]:10.3e}{line[Mu]:10.3e}{line[KappaRoss]:10.3e}"
         #"KURTYPE":
         #"KUR-PADOVA":
         #"GENERIC": 
@@ -51,7 +46,7 @@ def write_photosphere_for_moog(photosphere, path, format=None, include_molecules
         line_format = available_formats[format]
     except KeyError:
         raise ValueError(f"Format '{format}' not one of the known formats: {', '.join(list(available_formats.keys()))}")
-    
+    '''
 
     output = dedent(f"""
         {format}

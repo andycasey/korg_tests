@@ -81,7 +81,7 @@ def parse_meta(contents):
 
 
 
-def read_kurucz(fp_or_path, structure_start=14):
+def read_kurucz(fp_or_path, structure_start=13):
 
     filename, contents, content_stream = safe_open(fp_or_path)
 
@@ -109,6 +109,7 @@ def read_kurucz(fp_or_path, structure_start=14):
             delimiter=",",
             usecols=usecols
         )
+        assert values.shape[0] == meta["n_depth"]
         data.update(dict(zip(column_names, values.T)))
 
     column_descriptions = {
@@ -122,7 +123,7 @@ def read_kurucz(fp_or_path, structure_start=14):
     }
     descriptions = { k: desc for k, (desc, unit) in column_descriptions.items() if k in data }
     units = { k: unit for k, (desc, unit) in column_descriptions.items() if k in data  }
-
+    
     return Photosphere(
         data=data,
         units=units,
