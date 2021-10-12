@@ -4,6 +4,7 @@ standard_out '{standard_out}'
 summary_out '{summary_out}'
 model_in '{model_in}'
 lines_in '{lines_in}'
+stronglines_in '{stronglines_in}'
 atmosphere {atmosphere_flag:.0f}
 molecules {molecules_flag:.0f}
 trudamp {trudamp_flag:.0f}
@@ -16,7 +17,7 @@ iraf 0
 obspectrum 0
 plot 0
 freeform 0
-strong 0
+strong {strong_flag:.0f}
 scat {scat_flag:.0f}
 abundances {abundances_formatted}
 isotopes {isotopes_formatted}

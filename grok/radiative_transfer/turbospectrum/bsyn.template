@@ -5,7 +5,7 @@
 'COS(THETA)    :' '1.000'
 'ABFIND        :' '.false.'
 'MODELINPUT:' '{modelinput_basename}'
-'MARCS-FILE:' '.false.'
+'MARCS-FILE:' '{marcs_file_flag}'
 'MODELOPAC:' '{modelopac_basename}'
 'RESULTFILE :' '{result_basename}'
 'METALLICITY:'    '{metallicity:.3f}'
