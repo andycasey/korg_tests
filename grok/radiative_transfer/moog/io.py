@@ -6,7 +6,18 @@ from astropy.io import registry
 from grok.photospheres import Photosphere
 
 default_molecules = (
-    606, 106, 607, 608, 107, 108, 112, 707, 708, 808, 12.1, 60808, 10108, 101, 6.1, 7.1, 8.1, 822, 22.1
+    # See WRITEMOOG.ps page 16 as to why we include these atomic species here.
+    # From BMolec.f
+    1.1,     2.1,     6.1,     7.1,     8.1,    12.1,
+   13.1,    14.1,    15.1,    16.1,    17.1,    20.1,
+   22.1,    23.1,    24.1,    26.1,
+  101.0,   106.0,   107.0,   108.0,   109.0,   112.0,
+  113.0,   114.0,   115.0,   116.0,   117.0,   120.0,
+  124.0,   126.0, 10106.0, 10107.0, 10108.0, 10115.0,
+10116.0, 10608.0, 10812.0, 10813.0, 10820.0,   606.0,
+  607.0,   608.0,   616.0, 60808.0,   707.0,   708.0,
+  714.0,   715.0,   716.0,   808.0,   812.0,   814.0,
+  815.0,   816.0,   822.0,   823.0,   826.0,  1416.0
 )
 
 def write_photosphere_for_moog(photosphere, path, include_molecules=default_molecules):
