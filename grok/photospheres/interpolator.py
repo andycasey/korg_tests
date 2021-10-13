@@ -139,7 +139,7 @@ class PhotosphereInterpolator(object):
         return distances.argsort()[:n]
 
 
-    def __call__(self, method="linear", rescale=True, neighbours=30, **point):
+    def __call__(self, method="linear", rescale=True, neighbours=30, full_output=False, **point):
         """
         Interpolate a photospheric structure at the given stellar parameters.
         """
@@ -193,17 +193,18 @@ class PhotosphereInterpolator(object):
         C = len(interpolate_column_names)
         N, D = kwds["values"].shape
 
-        # Re-sample our neighbours onto the common opacity scale.
-        neighbour_quantities = np.zeros((N, C, D))
-        for i, neighbour_index in enumerate(neighbour_indices):
-            neighbour = self.photospheres[neighbour_index]
-            for j, column_name in enumerate(interpolate_column_names):
-                tk = interpolate.splrep(neighbour[opacity_column_name], neighbour[column_name])
-                neighbour_quantities[i, j, :] = interpolate.splev(common_opacity_scale, tk)[0]
+        interpolated_quantities = np.zeros((C, D))
+        neighbour_quantities = np.array([[self.photospheres[ni][column_name] for column_name in interpolate_column_names] for ni in neighbour_indices])
+        for i, column_name in enumerate(interpolate_column_names):
+            if column_name in self.interpolate_log_quantities:
+                kwds["values"] = np.log10(neighbour_quantities[:, i])
+            else:
+                kwds["values"] = neighbour_quantities[:, i]
 
-        # TODO: interpoalte in log for some params
-        kwds.update(values=neighbour_quantities)
-        interpolated_quantities = interpolate.griddata(**kwds).reshape((C, D))
+            z = interpolate.griddata(**kwds)
+            if column_name in self.interpolate_log_quantities:
+                z = 10**z
+            interpolated_quantities[i] = z
 
         # Get meta from neighbours.
         meta = self.photospheres[neighbour_indices[0]].meta.copy()
@@ -219,7 +220,10 @@ class PhotosphereInterpolator(object):
         for key in self.grid_keywords:
             photosphere.meta[key] = point[key]
 
-        return photosphere
+        if full_output:
+            return (photosphere, common_opacity_scale, neighbour_quantities, neighbour_indices, interpolate_column_names)
+        else:
+            return photosphere
 
 
 def _protect_qhull(a):
