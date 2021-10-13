@@ -19,6 +19,11 @@ default_molecules = (
   714.0,   715.0,   716.0,   808.0,   812.0,   814.0,
   815.0,   816.0,   822.0,   823.0,   826.0,  1416.0
 )
+default_molecules = (
+    606.0  ,   106.0  ,   607.0 ,    608.0  ,   107.0 ,    108.0 ,    112.0 ,    707.0,
+     708.0 ,    808.0 ,    12.1 ,   60808.0  , 10108.0 ,    101.0 ,      6.1 ,      7.1,
+       8.1 ,    822.0 ,    22.1
+)    
 
 def write_photosphere_for_moog(photosphere, path, include_molecules=default_molecules):
     """

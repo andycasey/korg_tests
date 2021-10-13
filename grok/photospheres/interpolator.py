@@ -9,41 +9,18 @@ from .photosphere import Photosphere
 
 class PhotosphereInterpolator(object):
 
-    def __init__(
-            self, 
-            photospheres, 
-            grid_keywords=None, 
-            interpolate_log_quantities=None, 
-            filter_values=None
-        ):
+    def __init__(self, photospheres, grid_keywords=None, interpolate_log_quantities=None):
 
-        self.photospheres = tuple(photospheres)
+        self.photospheres = photospheres
 
         # Build the grid of points.
         if grid_keywords is None:
             grid_keywords = tuple(self.photospheres[0].meta["grid_keywords"])
         self.grid_keywords = grid_keywords
         self.interpolate_log_quantities = interpolate_log_quantities or ()
-        self.filter_values = filter_values or dict()
+
         return None
-    
-
-    @property
-    def opacity_column_name(self):
-        try:
-            return self._opacity_column_name
-
-        except AttributeError:        
-            try_keys = ("RHOX", "lgTauR", "tau")
-            for key in try_keys:
-                if key in self.photospheres[0].dtype.names:
-                    self._opacity_column_name = key
-                    break
-            else:
-                raise ValueError(f"Cannot identify opacity column. Tried: {try_keys}")
         
-        return self._opacity_column_name
-    
 
     @property
     def grid_points(self):
@@ -166,18 +143,19 @@ class PhotosphereInterpolator(object):
         """
         Interpolate a photospheric structure at the given stellar parameters.
         """
-        
+
         grid_points = self.grid_points
 
         missing_keys = set(self.grid_keywords).difference(point)
         if missing_keys:
             raise ValueError(f"Missing keyword arguments: {', '.join(missing_keys)}")
         
-        interpolate_column_names = [n for n in self.photospheres[0].dtype.names[1:] if n != self.opacity_column_name]
+        opacity_column_name = "RHOX"
+        interpolate_column_names = [n for n in self.photospheres[0].dtype.names[1:] if n != opacity_column_name]
 
         xi = np.array([point[k] for k in self.grid_keywords])
 
-        lower, upper = (np.min(grid_points, axis=0), np.max(grid_points, axis=0))
+        lower, upper = (np.min(self.grid_points, axis=0), np.max(self.grid_points, axis=0))
         is_lower, is_upper = (xi < lower, xi > upper)
         if np.any(is_lower) or np.any(is_upper):
             is_bad = is_lower + is_upper
@@ -188,7 +166,7 @@ class PhotosphereInterpolator(object):
                 f"(lower: {lower[indices]}, upper: {upper[indices]})"
             )
 
-        grid_index = np.all(grid_points == xi, axis=1)
+        grid_index = np.all(self.grid_points == xi, axis=1)
         if np.any(grid_index):
             grid_index = np.where(grid_index)[0][0]
             return self.photospheres[grid_index]
@@ -197,25 +175,16 @@ class PhotosphereInterpolator(object):
         neighbour_indices = self.nearest_neighbour_indices(xi, neighbours)
 
         # Protect Qhull from columns with a single value.
-        cols = _protect_qhull(grid_points[neighbour_indices])  
+        cols = _protect_qhull(self.grid_points[neighbour_indices])  
         
-        values = np.array([self.photospheres[ni][self.opacity_column_name] for ni in neighbour_indices])
         kwds = {
             "xi": xi[cols].reshape(1, len(cols)),
-            "points": grid_points[neighbour_indices][:, cols],
-            "values": values,
+            "points": self.grid_points[neighbour_indices][:, cols],
+            "values": np.array([self.photospheres[ni][opacity_column_name] for ni in neighbour_indices]),
             "method": method,
             "rescale": rescale
         }
         common_opacity_scale = interpolate.griddata(**kwds)
-        
-        # Re-scale these points so that they are within the full bounds of the neighbours,
-        # but keep the same relative spacing. This way we're not extrapolating out.
-        min_opacity = np.min(kwds["values"][:, -1])
-        max_opacity = np.max(kwds["values"][:, 0])
-        if np.max(common_opacity_scale) > min_opacity or np.min(common_opacity_scale) < max_opacity:
-            ratios = (common_opacity_scale - np.min(common_opacity_scale)) / np.ptp(common_opacity_scale)
-            common_opacity_scale = ratios * (min_opacity - max_opacity) + max_opacity
 
         # At the neighbouring N points, create splines of all the values
         # with respect to their own opacity scales, then calcualte the 
@@ -229,28 +198,12 @@ class PhotosphereInterpolator(object):
         for i, neighbour_index in enumerate(neighbour_indices):
             neighbour = self.photospheres[neighbour_index]
             for j, column_name in enumerate(interpolate_column_names):
-                values = neighbour[column_name]
-                if column_name in self.interpolate_log_quantities:
-                    values = np.log10(values)
-                tk = interpolate.splrep(neighbour[self.opacity_column_name], values)
+                tk = interpolate.splrep(neighbour[opacity_column_name], neighbour[column_name])
                 neighbour_quantities[i, j, :] = interpolate.splev(common_opacity_scale, tk)[0]
 
-        interpolated_quantities = np.nan * np.ones((C, D))
-        for j, column_name in enumerate(interpolate_column_names):
-            mask = np.all(np.isfinite(neighbour_quantities[:, j]), axis=1)
-            if column_name in self.filter_values:
-                f = self.filter_values[column_name]
-                mask *= f(neighbour_quantities[:, j])
-            kwds.update(
-                points=grid_points[neighbour_indices][:, cols][mask],
-                values=neighbour_quantities[mask][:, j]
-            )
-            values = interpolate.griddata(**kwds)
-            
-            if column_name in self.interpolate_log_quantities:
-                values = 10**values
-
-            interpolated_quantities[j] = values
+        # TODO: interpoalte in log for some params
+        kwds.update(values=neighbour_quantities)
+        interpolated_quantities = interpolate.griddata(**kwds).reshape((C, D))
 
         # Get meta from neighbours.
         meta = self.photospheres[neighbour_indices[0]].meta.copy()
@@ -258,18 +211,13 @@ class PhotosphereInterpolator(object):
         # create a photosphere from these data.
         photosphere = Photosphere(
             data=np.vstack([common_opacity_scale, interpolated_quantities]).T,
-            names=tuple([self.opacity_column_name] + interpolate_column_names),
+            names=tuple([opacity_column_name] + interpolate_column_names),
             meta=meta
         )
-
 
         # Update the meta keywords for interpolated properties.
         for key in self.grid_keywords:
             photosphere.meta[key] = point[key]
-
-        if "FLXCNV" in photosphere.dtype.names:
-            low = (photosphere["FLXCNV"] < 1e-5)
-            photosphere["FLXCNV"][low] = 0.0
 
         return photosphere
 
