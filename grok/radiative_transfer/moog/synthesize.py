@@ -30,6 +30,7 @@ def moog_synthesize(
         scat_flag=1,
         opacit=0,
         opacity_contribution=2.0,
+        n_chunks=1,
         verbose=False,
         dir=None,
         **kwargs
@@ -142,40 +143,112 @@ def moog_synthesize(
         )
     )
 
-    # Write the control file.
-    contents = template.format(**kwds)
-    control_path = _path("batch.par")
-    with open(control_path, "w") as fp:
-        fp.write(contents)
+    if n_chunks > 1:
+        chunk_size = (lambda_max - lambda_min) / n_chunks
 
-    # Execute MOOG(SILENT).
-    print(f"Executing MOOGSILENT in {_path('')}")
+        wallclock_time = 0
+        spectrum = OrderedDict([
+            ("wavelength", []),
+            ("wavelength_unit", "Angstrom"),
+            ("rectified_flux", [])
+        ])
+        for chunk in range(n_chunks):
+            lambda_min = lambda_min + chunk_size * chunk
+            lambda_max = lambda_min + chunk_size * (chunk + 1)
+            lines_in = _path(f"lines.in{chunk}")
 
-    t_init = time()
-    process = subprocess.run(
-        ["MOOGSILENT"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=os.path.dirname(control_path),
-        input=os.path.basename(control_path) + "\n"*100,
-        encoding="ascii"
-    )
-    t_moogsilent = time() - t_init
-    if process.returncode != 0:
-        raise RuntimeError(process.stderr)
+            kwds.update(
+                lines_in=os.path.basename(lines_in),
+                lambda_min=lambda_min,
+                lambda_max=lambda_max,
+                standard_out=f"synth.std.out.{chunk}",
+                summary_out=f"synth.sum.out.{chunk}"
+            )
 
-    # Read the output.
-    output = parse_summary_synth_output(_path(kwds["summary_out"]))
-    wavelength, rectified_flux, meta = output[0]
+            chunk_transitions = Transitions(sorted(
+                filter(
+                    lambda t: (lambda_max + opacity_contribution) >= t.lambda_air.value >= (lambda_min - opacity_contribution),
+                    use_transitions
+                ),
+                key=lambda t: t.lambda_air
+            )) 
+
+            copy_or_write(
+                chunk_transitions,
+                lines_in,
+                format=kwargs.get("transitions_format", "moog")
+            )                      
+
+            # Write the control file.
+            contents = template.format(**kwds)
+            control_path = _path("batch.par")
+            with open(control_path, "w") as fp:
+                fp.write(contents)
+            with open(_path(f"batch.par{chunk}"), "w") as fp:
+                fp.write(contents)
+            
+            print(f"Executing chunk {chunk} for MOOGSILENT")
+
+            t_init = time()
+            process = subprocess.run(
+                ["MOOGSILENT"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=os.path.dirname(control_path),
+                input=os.path.basename(control_path) + "\n"*100,
+                encoding="ascii"
+            )
+            wallclock_time += (time() - t_init)
+            if process.returncode != 0:
+                raise RuntimeError(process.stderr)    
+
+            # Copy outputs.    
+            output = parse_summary_synth_output(_path(kwds["summary_out"]))
+
+            wavelength, rectified_flux, meta = output[0]
+            spectrum["wavelength"].extend(wavelength)
+            spectrum["rectified_flux"].extend(rectified_flux)
+            meta["dir"] = dir
+
+        meta["wallclock_time"] = wallclock_time
+        return (spectrum, meta)
+
+    else:
     
-    spectrum = OrderedDict([
-        ("wavelength", wavelength),
-        ("wavelength_unit", "Angstrom"),
-        ("rectified_flux", rectified_flux),
-    ])
-    
-    meta["dir"] = dir
-    meta["wallclock_time"] = t_moogsilent
-    
-    return (spectrum, meta)
+        # Write the control file.
+        contents = template.format(**kwds)
+        control_path = _path("batch.par")
+        with open(control_path, "w") as fp:
+            fp.write(contents)
+
+        # Execute MOOG(SILENT).
+        print(f"Executing MOOGSILENT in {_path('')}")
+
+        t_init = time()
+        process = subprocess.run(
+            ["MOOGSILENT"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=os.path.dirname(control_path),
+            input=os.path.basename(control_path) + "\n"*100,
+            encoding="ascii"
+        )
+        t_moogsilent = time() - t_init
+        if process.returncode != 0:
+            raise RuntimeError(process.stderr)
+
+        # Read the output.
+        output = parse_summary_synth_output(_path(kwds["summary_out"]))
+        wavelength, rectified_flux, meta = output[0]
+        
+        spectrum = OrderedDict([
+            ("wavelength", wavelength),
+            ("wavelength_unit", "Angstrom"),
+            ("rectified_flux", rectified_flux),
+        ])
+        
+        meta["dir"] = dir
+        meta["wallclock_time"] = t_moogsilent
+        
+        return (spectrum, meta)
     
