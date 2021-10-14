@@ -16,7 +16,7 @@
 'INDIVIDUAL ABUNDANCES:'    '0'
 'NFILES   :' '{N_transition_paths}'
 {transition_paths_formatted}
-'SPHERICAL:'  'F'
+'SPHERICAL:'  '{spherical_flag}'
 30
 300.00
 15

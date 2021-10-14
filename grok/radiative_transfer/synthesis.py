@@ -1,6 +1,7 @@
 from tempfile import mkdtemp
 from grok.radiative_transfer.moog.synthesize import moog_synthesize
 from grok.radiative_transfer.turbospectrum.synthesize import turbospectrum_bsyn
+from grok.radiative_transfer.korg.synthesize import synthesize as korg_synthesize
 
 def synthesize(
         photosphere,
@@ -45,7 +46,8 @@ def synthesize(
 
     available_methods = {
         "moog": moog_synthesize,
-        "turbospectrum": turbospectrum_bsyn
+        "turbospectrum": turbospectrum_bsyn,
+        "korg": korg_synthesize
     }
     try:
         _synthesize = available_methods[str(method).lower().strip()]

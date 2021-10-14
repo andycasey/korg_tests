@@ -110,7 +110,8 @@ def turbospectrum_bsyn(
         result_basename=result_basename,
         microturbulence=photosphere.meta["microturbulence"],
         N_transition_paths=len(transition_paths_formatted),
-        transition_paths_formatted="\n".join(transition_paths_formatted)
+        transition_paths_formatted="\n".join(transition_paths_formatted),
+        spherical_flag="T" if photosphere.is_spherical_geometry else "F"
     )
 
     if abundances is not None or isotopes is not None:

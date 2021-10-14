@@ -152,7 +152,11 @@ def read_transitions(path):
             i += 1
             continue
 
-        common = re.match(_header_pattern, lines[i]).groupdict()
+        common = re.match(_header_pattern, lines[i])
+        if common is None:
+            raise ValueError(f"Cannot match header pattern '{_header_pattern}' from '{lines[i]}'")
+        
+        common = common.groupdict()
         num = int(common.pop("num"))
 
         # Note that we are interpreting the ionisation state from the species representation,
