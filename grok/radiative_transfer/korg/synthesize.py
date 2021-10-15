@@ -44,7 +44,7 @@ def synthesize(
     copy_or_write(
         photosphere,
         _path(photosphere_path_basename),
-        format=kwargs.get("photosphere_format", "korg")
+        format=kwargs.get("photosphere_format", "kurucz")
     )
     
     kwds = dict(
