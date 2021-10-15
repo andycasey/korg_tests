@@ -4,6 +4,7 @@ import gzip
 import numpy as np
 from collections import OrderedDict
 from astropy.io import registry
+from textwrap import dedent
 
 from .photosphere import Photosphere
 from grok.utils import periodic_table, safe_open
@@ -87,7 +88,7 @@ def read_kurucz(fp_or_path, structure_start=13):
 
     meta = parse_meta(contents)
 
-    if meta["radius"] > 0:
+    if meta["radius"] > 1:
         # Spherical models have six columns.
         usecols = (0, 1, 2, 3, 4, 5)
         column_locations = [
@@ -131,9 +132,87 @@ def read_kurucz(fp_or_path, structure_start=13):
         meta=meta
     )
 
+def write_kurucz(photosphere, path, **kwargs):
+    """
+    Write a photosphere in Kurucz format, documented at:
+    https://marcs.astro.uu.se/krz_format.html.
+
+    :param photosphere:
+        The photosphere.
+    
+    :path:
+        The local path.
+    """
+    meta = photosphere.meta
+
+    if photosphere.is_spherical_geometry:
+        model_type = 3 
+        geometry_desc = f"SPHERICAL,  RADIUS= {meta['radius']:.3e} cm"
+        first_column_name = "tau"
+    else:
+        model_type = 0
+        geometry_desc = "PLANE-PARALLEL."
+        first_column_name = "RHOX"
+
+    opacity_keys = (
+        "absorption_by_H",
+        "absorption_by_H2_plus",
+        "absorption_by_H_minus",
+        "rayleigh_scattering_by_H",
+        "absorption_by_He",
+        "absorption_by_He_plus",
+        "absorption_by_He_minus",
+        "rayleigh_scattering_by_He",
+        "absorption_by_metals_for_cool_stars_Si_Mg_Al_C_Fe",
+        "absorption_by_metals_for_intermediate_stars_N_O_Si_plus_Mg_plus_Ca_plus",
+        "absorption_by_metals_for_hot_stars_C_N_O_Ne_Mg_Si_S_Fe",
+        "thomson_scattering_by_electrons",
+        "rayleigh_scattering_by_h2"
+    )
+    opacity_switches = [int(meta.get(k, False)) for k in opacity_keys]
+
+    contents = dedent(
+    f"""
+    {meta['header']}
+    T EFF={meta['teff']:.0f}. GRAV= {meta['logg']:.2f} MODEL TYPE= {model_type} WLSTD= {meta.get('standard_wavelength', 5000):.0f} {geometry_desc}
+    {' '.join(map(str, opacity_switches))} - OPACITY SWITCHES
+    """)
+
+    N_elements = 99
+    normalized_abundances = []
+    for i, element in enumerate(periodic_table[:N_elements]):
+        value = meta[f'log10_normalized_abundance_{element}']
+        if 10**value > 0.01:
+            value = 10**value
+        if element in ("H", "He"):
+            normalized_abundances.append(f"{value:1.3f}")
+        else:
+            normalized_abundances.append(f"{value:1.2f}")
+
+    n_per_line = 10
+    for i in range(int(np.ceil(N_elements / n_per_line))):
+        si, ei = (i * n_per_line, (i + 1) * n_per_line)
+        contents += " ".join(normalized_abundances[si:ei]) + "\n"
+
+    contents = contents.rstrip() + f" {len(photosphere):.0f}\n"
+    
+    for row in photosphere:
+        
+        contents += f"{row[first_column_name]:1.9e},{row['T']: >7.1f},{row['XNE']: >12.5e},{row['numdens_other']: >12.5e},{row['Density']: >12.5e},"
+        if photosphere.is_spherical_geometry:
+            contents += f"{row['Depth']: >12.5e},"
+        contents += "\n"
+
+    with open(path, "w") as fp:
+        fp.write(contents)
+    
+    return None
+
+
 def identify_kurucz(origin, *args, **kwargs):
     return (isinstance(args[0], str) and \
             args[0].lower().endswith((".krz", ".krz.gz")))
 
 registry.register_reader("kurucz", Photosphere, read_kurucz)
+registry.register_writer("kurucz", Photosphere, write_kurucz)
 registry.register_identifier("kurucz", Photosphere, identify_kurucz)
