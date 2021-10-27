@@ -47,21 +47,18 @@ class Formula(object):
                         raise ValueError(f"Numeric codes for molecules with more than 4 chars like "
                                          f"'{representation}' are not supported.")
                 else:
-                    # Should be something like "OH", "FeH", "Li", "C2"
-                    indices = [i for i, char in enumerate(representation) if char.isdigit() or char.isupper()]
-                    indices.append(len(representation))
-                    codes = []
-                    for j, index in enumerate(indices[:-1]):
-                        codes.append(representation[index:indices[j+1]])
-            
-                    Zs = []
-                    for sub_code in codes:
-                        if sub_code.isnumeric():
-                            previous_Z = Zs[-1]
-                            for j in range(int(sub_code) - 1):
-                                Zs.append(previous_Z)
+                    # Should be something like "OH", "FeH", "Li", "C2" (strict)
+                    # But sometimes people put HE for He which is really irritating (not strict)
+                    for strict in (True, False):
+                        try:
+                            Zs = parse_formula_string(representation, strict=strict)
+                        except ValueError:
+                            continue
                         else:
-                            Zs.append(periodic_table.index(sub_code) + 1)
+                            break
+                    else:
+                        raise
+
             else:
                 raise TypeError(f"Invalid type representation ({type(representation)}) for '{representation}'")
 
@@ -85,3 +82,50 @@ class Formula(object):
     @property
     def atoms(self):
         return tuple([periodic_table[Z-1] for Z in self.Zs if Z > 0])
+
+
+def parse_formula_string(representation, strict=True):
+    if strict:
+        indices = [i for i, char in enumerate(representation) if char.isdigit() or char.isupper()]
+        indices.append(len(representation))
+    else:
+        try:
+            Zs = [periodic_table.index(representation.title())]
+        except ValueError:
+            # Something like "FEH"
+            indices = [0]
+            Zs = []
+            ws = (2, 1)
+            while True:
+                for w in ws:
+                    si = indices[-1]
+                    chars = representation[si:si+w].title()
+                    try:
+                        Zs.append(periodic_table.index(chars.title()))
+                    except ValueError:
+                        continue
+                    else:
+                        indices.append(si + w)                        
+                        break
+                else:
+                    raise ValueError(f"Couldn't find '{representation[si:si+max(ws)]}' in the periodic table!")
+
+                if len(representation[si+w:]) == 0:
+                    break
+        finally:
+            return Zs
+
+    codes = []
+    for j, index in enumerate(indices[:-1]):
+        codes.append(representation[index:indices[j+1]])
+
+    Zs = []
+    for sub_code in codes:
+        if sub_code.isnumeric():
+            previous_Z = Zs[-1]
+            for j in range(int(sub_code) - 1):
+                Zs.append(previous_Z)
+        else:
+            Zs.append(periodic_table.index(sub_code) + 1)
+    
+    return Zs

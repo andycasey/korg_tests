@@ -7,7 +7,8 @@ from grok.transitions import (Species, Transition, Transitions)
 from grok.utils import safe_open
 
 _header_pattern = "'\s*(?P<turbospectrum_species_as_float>[\d\.]+)\s*'\s*(?P<ionisation>\d+)\s+(?P<num>\d+)"
-_line_pattern = "\s*(?P<lambda_air>[\d\.]+)\s*(?P<E_lower>[\-\d\.]+)\s*(?P<log_gf>[\-\d\.]+)\s*(?P<vdW>[\-\d\.]+)\s*(?P<g_upper>[\d\.]+)\s*(?P<gamma_rad>[\d\.E\+\-]+)\s'(?P<lower_orbital_type>\w)' '(?P<upper_orbital_type>\w)'\s+(?P<equivalent_width>[\d\.]+)\s+(?P<equivalent_width_error>[\d\.]+)\s'(?P<comment>.+)'"
+_line_pattern = "\s*(?P<lambda_air>[\d\.]+)\s*(?P<E_lower>[\-\d\.]+)\s*(?P<log_gf>[\-\d\.]+)\s*(?P<vdW>[\-\d\.]+)\s*(?P<g_upper>[\d\.]+)\s*(?P<gamma_rad>[\d\.Ee\+\-]+)\s'(?P<lower_orbital_type>\w)' '(?P<upper_orbital_type>\w)'\s+(?P<equivalent_width>[\d\.]+)\s+(?P<equivalent_width_error>[\d\.]+)\s'(?P<comment>.+)'"
+_line_pattern_short = "\s*(?P<lambda_air>[\d\.]+)\s*(?P<E_lower>[\-\d\.]+)\s*(?P<log_gf>[\-\d\.]+)\s*(?P<vdW>[\-\d\.]+)\s*(?P<g_upper>[\d\.]+)\s*(?P<gamma_rad>[\d\.Ee\+\-]+)"
 
 # Amazingly, there does not seem to be a python string formatting that does the following:
 _format_log_gf = lambda log_gf: "{0:< #6.3f}".format(log_gf)[:6]
@@ -167,18 +168,26 @@ def read_transitions(path):
         common["species"].charge = Species(lines[i + 1][1:-1]).charge
         
         for j, line in enumerate(lines[i+2:i+2+num], start=i+2):
-            transition = re.match(_line_pattern, line).groupdict()
+            
+            match = re.match(_line_pattern, line)
+            if match is None:
+                match = re.match(_line_pattern_short, line)
+            transition = match.groupdict()
             
             row = { **common, **transition }
             
             # Format things.
             for key in keys_as_floats:
+                row.setdefault(key, 0) # in case we only have things from the short format
                 row[key] = float(row[key])
 
             # Add units.
             row["lambda_air"] *= u.Angstrom
             row["E_lower"] *= u.eV
             row["gamma_rad"] *= (1/u.s)
+
+            row.setdefault("gamma_stark", 0)
+            row["gamma_stark"] *= (1/u.s)
 
             # https://github.com/bertrandplez/Turbospectrum2019/blob/master/Utilities/vald3line-BPz-freeformat.f#448
             # g_upper = j_upper * 2 + 1

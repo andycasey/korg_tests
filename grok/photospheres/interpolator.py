@@ -11,6 +11,8 @@ class PhotosphereInterpolator(object):
 
     def __init__(self, photospheres, grid_keywords=None, interpolate_log_quantities=None):
 
+        if len(photospheres) <= 1:
+            raise ValueError(f"Need more photospheres than that ({len(photospheres)} given).")
         self.photospheres = photospheres
 
         # Build the grid of points.
@@ -21,6 +23,16 @@ class PhotosphereInterpolator(object):
 
         return None
         
+
+    @property
+    def opacity_column_name(self):
+        keys = ("RHOX", "tau")
+        for key in keys:
+            if key in self.photospheres[0].dtype.names:
+                return key
+        raise KeyError(f"Cannot identify opacity column name. Tried: {', '.join(keys)}")
+
+
 
     @property
     def grid_points(self):
@@ -150,8 +162,7 @@ class PhotosphereInterpolator(object):
         if missing_keys:
             raise ValueError(f"Missing keyword arguments: {', '.join(missing_keys)}")
         
-        opacity_column_name = "RHOX"
-        interpolate_column_names = [n for n in self.photospheres[0].dtype.names[1:] if n != opacity_column_name]
+        interpolate_column_names = [n for n in self.photospheres[0].dtype.names[1:] if n != self.opacity_column_name]
 
         xi = np.array([point[k] for k in self.grid_keywords])
 
@@ -180,7 +191,7 @@ class PhotosphereInterpolator(object):
         kwds = {
             "xi": xi[cols].reshape(1, len(cols)),
             "points": self.grid_points[neighbour_indices][:, cols],
-            "values": np.array([self.photospheres[ni][opacity_column_name] for ni in neighbour_indices]),
+            "values": np.array([self.photospheres[ni][self.opacity_column_name] for ni in neighbour_indices]),
             "method": method,
             "rescale": rescale
         }
@@ -212,7 +223,7 @@ class PhotosphereInterpolator(object):
         # create a photosphere from these data.
         photosphere = Photosphere(
             data=np.vstack([common_opacity_scale, interpolated_quantities]).T,
-            names=tuple([opacity_column_name] + interpolate_column_names),
+            names=tuple([self.opacity_column_name] + interpolate_column_names),
             meta=meta
         )
 

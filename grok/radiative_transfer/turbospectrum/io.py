@@ -27,8 +27,13 @@ def write_photosphere_for_turbospectrum(photosphere, path):
             content = fp.read()
         with open(path, "w") as fp:
             fp.write(content.decode("utf-8"))
-        return None
 
+        photosphere.meta["read_format"] = None
+        photosphere.write("tmp2", format="turbospectrum")
+        raise a
+
+        return None
+        
     # TODO: Turbospectrum describes this format as 'KURUCZ', but it looks like an ATLAS-style format to me.
     # NOTE: Turbospectrum does not read the abundance information from the photosphere. It reads it from the control file.
     output = (
@@ -36,10 +41,27 @@ def write_photosphere_for_turbospectrum(photosphere, path):
     )
 
     # See https://github.com/bertrandplez/Turbospectrum2019/blob/master/source-v19.1/babsma.f#L727
-    line_format = " {line[RHOX]:.8e} {line[T]: >8.1f} {line[P]:.3e} {line[XNE]:.3e} {line[ABROSS]:.3e} {line[ACCRAD]:.3e} {line[VTURB]:.3e} {line[FLXCNV]:.3e}\n"
+    ross_keys = ("ABROSS", "KappaRoss")
+    for ross_key in ross_keys:
+        if ross_key in photosphere.dtype.names:
+            break
+    else:
+        raise ValueError("Need ABROSS or KappaRoss")
+    
+    line_format = " {rho_x:.8e} {T: >8.1f} {P:.3e} {XNE:.3e} {ABROSS:.3e} {ACCRAD:.3e} {VTURB:.3e} {FLXCNV:.3e}\n"
 
     for i, line in enumerate(photosphere, start=1):
-        output += line_format.format(i=i, line=line)
+        output += line_format.format(
+            i=i,
+            rho_x=line["RHOX"],
+            T=line["T"],
+            P=line["P"],
+            XNE=line["XNE"],
+            ABROSS=line[ross_key],
+            ACCRAD=line["ACCRAD"] if "ACCRAD" in photosphere.dtype.names else 0,
+            VTURB=line["VTURB"] if "VTURB" in photosphere.dtype.names else 0,
+            FLXCNV=line["FLXCNV"] if "FLXCNV" in photosphere.dtype.names else 0
+        )
 
     with open(path, "w") as fp:
         fp.write(output)

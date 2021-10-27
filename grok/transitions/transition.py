@@ -63,14 +63,15 @@ class Transition(object):
                 raise a
                 vdW = vdW_approx
 
-        if vdW < 0:
-            # If the van der Waals constant is negative, we assume it is log(\Gamma_vdW)
-            vdW = 10**vdW
-
-        elif vdW > 20:
-            # If the van der Waals constant is > 20 we assume that it's packed ABO
-            #raise NotImplementedError("check to see how this is packed in MOOG vs others")
-            None
+        # Not a good idea to do this unless we have to.
+        #if vdW < 0:
+        #    # If the van der Waals constant is negative, we assume it is log(\Gamma_vdW)
+        #    vdW = 10**vdW
+        #
+        #elif vdW > 20:
+        #    # If the van der Waals constant is > 20 we assume that it's packed ABO
+        #    #raise NotImplementedError("check to see how this is packed in MOOG vs others")
+        #    None
             
         #gamma_rad = gamma_rad or approximate_radiative_gamma(lambda_vacuum, log_gf)
                     

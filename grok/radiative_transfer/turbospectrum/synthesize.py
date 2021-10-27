@@ -78,12 +78,24 @@ def turbospectrum_bsyn(
         skip_irrelevant_transitions=skip_irrelevant_transitions,
         update_missing_data=update_missing_data
     )
-    copy_or_write(
-        transitions,
-        _path(transition_basename_format.format(i=0)), 
-        **kwds
-    )
-    transition_paths_formatted = [transition_basename_format.format(i=i) for i in range(T)]
+    if isinstance(transitions[0], str):
+        transition_paths_formatted = []
+        for T, path in enumerate(transitions, start=1):
+            copy_or_write(
+                path,
+                _path(transition_basename_format.format(i=T)),
+                **kwds
+            )
+            transition_paths_formatted.append(transition_basename_format.format(i=T))
+    else:
+        copy_or_write(
+            transitions,
+            _path(transition_basename_format.format(i=0)), 
+            **kwds
+        )
+    
+        transition_paths_formatted = [transition_basename_format.format(i=i) for i in range(T)]
+
     if include_hydrogen_transitions:
         transition_paths_formatted.append("DATA/Hlinedata")
         T += 1

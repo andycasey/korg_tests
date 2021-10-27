@@ -1,0 +1,75 @@
+methods:
+  korg: {}
+  moog: {}
+  turbospectrum:
+    skip_irrelevant_transitions: true
+    update_missing_data: true
+    photosphere_format: marcs
+stars:
+  Sun:
+    model_kwargs:
+      photosphere_grid_wildmask: data/photospheres/marcs_mod/p*_t02_st_*a+0.00*
+      photosphere_point:
+        logg: 4.4
+        m_h: 0
+        microturbulence: 1.0
+        teff: 5777
+    observation_path: data/ATLAS.Sun_47000.fits
+  Arcturus:
+    model_kwargs:
+      photosphere_grid_wildmask: data/photospheres/marcs_mod/s*_m1.0_t02_st_*a+0.20*
+      photosphere_point:
+        alpha_m: 0.2
+        logg: 1.64
+        m_h: -0.53
+        neighbours: 8
+        teff: 4286
+    observation_path: data/ATLAS.Arcturus_47000.fits
+  HD49933:
+    model_kwargs:
+      photosphere_grid_wildmask: data/photospheres/marcs_mod/p*_t02_st_*a+0.20*
+      photosphere_point:
+        alpha_m: 0
+        logg: 4.2
+        m_h: -0.46
+        teff: 6635
+    observation_path: data/HARPS.Archive_HD49933_47000.fits
+  HD122563:
+    model_kwargs:
+      photosphere_grid_wildmask: data/photospheres/marcs_mod/s*_m1.0_t02_st_*a+0.40*
+      photosphere_point:
+        alpha_m: 0.4
+        logg: 1.61
+        m_h: -2.74
+        teff: 4587
+    observation_path: data/ESPaDOnS_HD122563_47000.fits
+transitions:
+- lambdas:
+  - 3930
+  - 3950
+  - 0.01
+  paths: 
+  - data/transitions/all-3930-3950.vald
+  strong_path: data/transitions/strong-3930-3950.vald
+- lambdas: 
+  - 5160
+  - 5190
+  - 0.01
+  paths: 
+  - data/transitions/all-5160-5176.vald
+  - data/transitions/all-5176-5190.vald
+  strong_path: data/transitions/strong-5160-5190.vald
+- lambdas: 
+  - 6540
+  - 6578
+  - 0.01
+  paths: 
+  - data/transitions/all-6540-6559.vald
+  - data/transitions/all-6559-6578.vald
+- lambdas: 
+  - 15000
+  - 15500
+  - 0.01
+  paths: 
+  - data/transitions/turbospec.20180901.atoms
+  - data/transitions/turbospec.20180901.molec

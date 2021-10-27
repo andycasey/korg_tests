@@ -8,7 +8,7 @@ class Species(object):
     def __init__(self, representation):
 
         representation = representation.strip(" 0")
-        tokens = re.split("[\s\._]", representation)
+        tokens = [token for token in re.split("[\s\._]", representation) if len(token) > 0]
         if len(tokens) > 2:
             raise ValueError(f"Invalid species code '{representation}' ({type(representation)})")
         

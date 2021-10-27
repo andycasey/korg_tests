@@ -3,6 +3,7 @@ import numpy as np
 from astropy.io import registry
 from astropy import units as u
 from typing import OrderedDict
+from textwrap import dedent
 
 from grok.transitions import (Species, Transition, Transitions)
 from grok.utils import safe_open
@@ -309,7 +310,8 @@ def identify_vald_all_or_extract_element(origin, *args, **kwargs):
 
     first_line_pattern = ".+Lande factors\s+Damping parameters"
     # This assumes Angstroms and eV as the units. We could not be so fussy!
-    second_line_pattern = "^Elm\s+Ion\s+WL_air\(A\)\s+log\(gf\)\s+E_low\(eV\)\s+J lo\s+E_up\(eV\)\s+J up\s+lower\s+upper\s+mean\s+Rad\.\s+Stark\s+Waals"
+    second_line_pattern = "^Elm\s+Ion\s+WL_(air|vac)\(A\)\s+log(\(gf\)|\sgf)\*?\s+E_low\(eV\)\s+J lo\s+E_up\(eV\)\s+J up\s+lower\s+upper\s+mean\s+Rad\.\s+Stark\s+Waals"
+
     first_line = args[1].readline()
     if isinstance(first_line, bytes):
         first_line = first_line.decode("utf-8")
@@ -337,10 +339,39 @@ def identify_vald_stellar(origin, *args, **kwargs):
     args[1].seek(0)
     return re.match(zeroth_line_pattern, zeroth_line) is not None
 
-    
+
+
+
+
+def write_vald(transitions, path):
+    """
+    Write transitions to path using the VALD extractformat.
+    """
+
+    # Sort by wavelength.
+
+    contents = "                                             Damping parameters     Lande  Central\n"
+    contents += "Spec Ion     WL_vac(A)  Excit(eV) log gf* Rad.   Stark   Waals   factor  depth  Reference\n"
+    for t in sorted(transitions, key=lambda t: t.lambda_vacuum.value):
+        species_repr = "".join(t.species.atoms)
+        # This: 
+        #   https://github.com/bertrandplez/Turbospectrum2019/blob/master/Utilities/vald3line-BPz-freeformat.f#L420-428
+        # seems to suggest that this is how VALD encodes gamma_rad, but I haven't seen any documentation from VALD about that.
+        gamma_rad = t.gamma_rad.value
+        if gamma_rad > 3:
+            gamma_rad = np.log10(gamma_rad)
+        contents += f"'{species_repr} {t.species.charge + 1}',{t.lambda_vacuum.value: >16.4f},{t.E_lower.value: >8.4f}, {t.log_gf: >8.3f}, {gamma_rad: >6.3f}, {t.gamma_stark.value: >6.3f}, {t.vdW_compact:>6.3f}, 0.0, 0.0\n"
+
+    # Korg needs this, but it will not always be true
+    contents += "* oscillator strengths were scaled by the solar isotopic ratios."
+    with open(path, "w") as fp:
+        fp.write(contents)
+
+    return None     
 
 
 registry.register_reader("vald", Transitions, read_vald)
+registry.register_writer("vald.stellar", Transitions, write_vald)
 registry.register_reader("vald.stellar", Transitions, read_extract_stellar_long_output)
 registry.register_identifier("vald", Transitions, identify_vald_all_or_extract_element)
 registry.register_identifier("vald.stellar", Transitions, identify_vald_stellar)

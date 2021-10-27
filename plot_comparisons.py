@@ -3,135 +3,37 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import pickle
+import yaml
+from collections import OrderedDict
 from matplotlib import gridspec
 from grok.utils import read_benchmark_star
 from matplotlib.patches import ConnectionPatch
 from scipy.ndimage import gaussian_filter
 
-output_prefix = lambda star_description, lambda_min, lambda_max, method: f"{star_description}_{lambda_min:.0f}_{lambda_max:.0f}_{method}_interpolated"
-figure_path = lambda star_description, **_: f"compare-{star_description}-interpolated.png"
 
-stars = [
-    # Arcturus
-    dict(
-        description="Arcturus",
-        observation_path="data/ATLAS.Arcturus_47000.fits",
-        model_kwargs=dict(
-            # NOTE: Not using interpolation.
-            #photosphere_path = "data/photospheres/marcs_mod/s4250_g+1.5_m1.0_t02_st_z-0.50_a+0.20_c+0.00_n+0.00_o+0.20_r+0.00_s+0.00.mod.gz",
-            photosphere_path = "data/photospheres/castelli-kurucz-2004/am05t4250g15k2odfnew.dat",
-            #photosphere_grid_wildmask="data/photospheres/marcs_mod/s*_m1.0_t02_st_*a+0.20*",
-            photosphere_grid_wildmask="data/photospheres/castelli-kurucz-2004/*.dat",
-            photosphere_read_format="atlas9",
-            photosphere_point=dict(
-                teff=4286,
-                logg=1.64,
-                m_h=-0.53, 
-                alpha_m=0
-            )
-        )
-    ),
-    # Sun.
-    dict(
-        description="Sun",
-        observation_path="data/ATLAS.Sun_47000.fits",
-        model_kwargs=dict(  
-            # NOTE: Not using interpolation.
-            photosphere_path="data/photospheres/castelli-kurucz-2004/ap00t5750g45k2odfnew.dat",
-            
-            photosphere_grid_wildmask="data/photospheres/castelli-kurucz-2004/*.dat",
-            photosphere_read_format="atlas9",
-            photosphere_point=dict(
-                teff=5777,
-                logg=4.4,
-                m_h=0,
-                alpha_m=0
-            )
-        )
-    ),   
-    # HD49933
-    dict(
-        description="HD49933",
-        observation_path="data/HARPS.Archive_HD49933_47000.fits",
-        model_kwargs=dict(
-            photosphere_path="data/photospheres/castelli-kurucz-2004/am05t6500g40k2odfnew.dat",
-            photosphere_grid_wildmask="data/photospheres/castelli-kurucz-2004/*.dat",
-            photosphere_read_format="atlas9",
-            photosphere_point=dict(
-                teff=6635,
-                logg=4.20,
-                m_h=-0.46,
-                alpha_m=0
-            )
-        )
-    ),
-    # HD122563
-    dict(
-        description="HD122563",
-        observation_path="data/ESPaDOnS_HD122563_47000.fits",
-        model_kwargs=dict(
-            # TODO: Switch to MARCS.
-            #photosphere_grid_wildmask="data/photospheres/marcs_mod/s*_m1.0_t02_st_*a+0.20*",
-            photosphere_path="data/photospheres/marcs_mod/s4500_g+1.5_m1.0_t02_st_z-2.50_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod.gz",
-            photosphere_grid_wildmask="data/photospheres/castelli-kurucz-2004/*.dat",
-            photosphere_read_format="atlas9",
-            photosphere_point=dict(
-                teff=4587,
-                logg=1.61,
-                m_h=-2.74, 
-                alpha_m=+0.4
-            )
-        )
-    )
+korg_version = (0, 4, 1) # TODO: Check this from the meta of each file that it matches
+korg_major_version, korg_minor_version, korg_micro_version = korg_version
 
-]
+# Specify some paths. The output_prefix should match that from `make_comparisons.py`
+output_prefix = lambda star_description, lambda_min, lambda_max, method: f"{star_description}_{lambda_min:.0f}_{lambda_max:.0f}_{method}-alpha"
 
+figure_path = lambda star_description, **_: f"compare-{star_description}-v{korg_major_version}.{korg_minor_version}.{korg_micro_version}.png"
+wallclock_figure_path = f"wallclock-v{korg_major_version}.{korg_minor_version}.{korg_micro_version}.png"
 
-all_transition_kwds = [
-    dict(
-        paths=(
-            "data/transitions/all-3660-3680.vald", 
-        ),
-        strong_path=None,
-        lambdas=(3660, 3680, 0.01),
-    ),
-    dict(
-        paths=(
-            "data/transitions/all-3930-3950.vald", 
-        ),
-        # Ca II lines.
-        strong_path="data/transitions/strong-3930-3950.vald",
-        lambdas=(3930, 3950, 0.01),
-    ),
-    dict(
-        paths=(
-            "data/transitions/all-5160-5176.vald", 
-            "data/transitions/all-5176-5190.vald"
-        ),
-        # Mg II lines.
-        strong_path="data/transitions/strong-5160-5190.vald",
-        lambdas=(5160, 5190, 0.01),
-    ),
-    dict(
-        paths=(
-            "data/transitions/all-6540-6559.vald",
-            "data/transitions/all-6559-6578.vald"
-        ),
-        strong_path=None,
-        lambdas=(6540, 6578, 0.01),
-    ),
-]
+# Load in the same file that we used in `make_comparisons.py`
+with open("comparisons.yml", "r") as fp:
+    config = yaml.load(fp, Loader=yaml.FullLoader)
 
-methods = {
-    "moog": dict(),
-    "turbospectrum": dict(
-        skip_irrelevant_transitions=True,
-        update_missing_data=True
-    ),
-    "korg": dict(),
+# Some plotting keywords
+plot_kwargs = {
+    "moog": dict(c="#CCCCCC", zorder=1, ms=0),
+    "turbospectrum": dict(c="#666666", zorder=2, ms=0),
+    "korg": dict(c="tab:red", zorder=5, ls=":", ms=0),
+    "observation": dict(c="k", zorder=10, ms=0)
 }
+ylim = (0, 1.1)
+diff_ylim = (-0.10, 0.10)
 
-from scipy.stats.distributions import norm as normal
 
 def convolve_flux(wavelengths, fluxes, R):
 
@@ -139,35 +41,19 @@ def convolve_flux(wavelengths, fluxes, R):
     return gaussian_filter(fluxes, sigma)
 
 
+total_times = { method: [] for method in config["methods"].keys() }
 
-total_times = { method: [] for method in methods.keys() }
+T = len(config["transitions"])
 
-
-plot_kwargs = {
-    "moog": dict(c="tab:red"),
-    "turbospectrum": dict(c="tab:blue", ls=":"),
-    "korg": dict(c="#666666", zorder=5),
-    "observation": dict(c="k", zorder=10)
-}
-
-
-T = len(all_transition_kwds)
-ylim = (0, 1.1)
-diff_ylim = (-0.10, 0.10)
-
-
-
-for star in stars:
+for star_description, star in config["stars"].items():
     
-    star_description = star["description"]
-
     obs_wl, obs_flux, obs_sigma = read_benchmark_star(star["observation_path"])
     bad = (obs_flux <= 0)
     obs_flux[bad] = np.interp(obs_wl[bad], obs_flux[~bad], obs_flux[~bad])
     #obs_flux[obs_flux <= 0] = np.nan
     fig = plt.figure(constrained_layout=True, figsize=(30, 3))
 
-    lambda_ptp = np.array([np.ptp(ea["lambdas"][:2]) for ea in all_transition_kwds])
+    lambda_ptp = np.array([np.ptp(ea["lambdas"][:2]) for ea in config["transitions"]])
     gs = gridspec.GridSpec(
         ncols=T,
         nrows=2,
@@ -184,7 +70,7 @@ for star in stars:
         if not diff_ax.get_subplotspec().is_first_col():
             diff_ax.set_yticks([])
 
-    for t, (ax, diff_ax, transition_kwds) in enumerate(zip(axes, diff_axes, all_transition_kwds)):
+    for t, (ax, diff_ax, transition_kwds) in enumerate(zip(axes, diff_axes, config["transitions"])):
 
         lambda_min, lambda_max, _ = transition_kwds["lambdas"]
 
@@ -197,38 +83,40 @@ for star in stars:
             **plot_kwargs["observation"],
         )
 
-        for method, _ in methods.items(): 
+        for method, _ in config["methods"].items(): 
             output_path = f"executions/{output_prefix(star_description, lambda_min, lambda_max, method)}.pkl"
-            if method == "korg":
-                output_path = output_path[:-4]
-                if output_path.endswith("_interpolated"):
-                    output_path = output_path[:-13] # to remove the _interpolated
 
-            print(f"LOading {output_path}")
+            print(f"Loading {output_path}")
             if not os.path.exists(output_path):
                 continue
             
+            with open(output_path, "rb") as fp:
+                spectrum, meta = pickle.load(fp)
+
+            # Check version in meta.
             if method == "korg":
-                flux = np.loadtxt(output_path)
-                flux /= np.max(flux)
-                wl = np.arange(lambda_min, lambda_max + 0.01, 0.01)[:len(flux)]
-                meta = dict(wallclock_time=0)
+                # TODO: naming here inconsistent: korg_major_version and korg_version_major
+                actual_korg_major_version = int(meta.get("korg_version_major", -1))
+                actual_korg_minor_version = int(meta.get("korg_version_minor", -1))
+                actual_korg_micro_version = int(meta.get("korg_version_micro", -1))
+                
+                if actual_korg_major_version != korg_major_version \
+                or actual_korg_minor_version != korg_minor_version \
+                or actual_korg_micro_version != korg_micro_version:
+                    print(
+                        f"WARNING: We are making a figure for Korg v{korg_major_version}.{korg_minor_version}.{korg_micro_version}, "
+                        f"but the metadata in {output_path} suggests this comparison was executed with Korg v{actual_korg_major_version}.{actual_korg_minor_version}.{actual_korg_micro_version}. "
+                        f"I won't make a fuss, but you should ensure that this is what you want."
+                    )
 
-                convolved_flux = convolve_flux(wl, flux, star.get("R", 15000))
-                convolved_flux = gaussian_filter(flux, 2)
-                #    return gaussian_filter(fluxes, sigma)
+            wl, flux = (np.array(spectrum["wavelength"]), np.array(spectrum["rectified_flux"]))
+            wl = wl[:len(flux)]
+            flux = flux[:len(wl)]
+            if len(wl) == 0:
+                print(f"NO SPECTRUM IN {output_path}")
+                continue
 
-
-            else:
-                with open(output_path, "rb") as fp:
-                    spectrum, meta = pickle.load(fp)
-
-                wl, flux = (np.array(spectrum["wavelength"]), np.array(spectrum["rectified_flux"]))
-                if len(wl) == 0:
-                    print(f"NO SPECTRUM IN {output_path}")
-                    continue
-
-                convolved_flux = convolve_flux(wl, flux, star.get("R", 25_000))
+            convolved_flux = convolve_flux(wl, flux, star.get("R", 25_000))
 
             total_times[method].append(meta["wallclock_time"])
 
@@ -261,7 +149,7 @@ for star in stars:
     plt.draw()
 
     # Deal with spines, labels, and common limits.
-    for i, (ax, diff_ax, transition_kwds) in enumerate(zip(axes, diff_axes, all_transition_kwds)):
+    for i, (ax, diff_ax, transition_kwds) in enumerate(zip(axes, diff_axes, config["transitions"])):
         lambda_min, lambda_max, _ = transition_kwds["lambdas"]
 
 
@@ -281,7 +169,7 @@ for star in stars:
                 
         if not ax.get_subplotspec().is_last_col():
             next_ax = axes[i + 1]
-            next_lambda_min = all_transition_kwds[i + 1]["lambdas"][0]
+            next_lambda_min = config["transitions"][i + 1]["lambdas"][0]
 
             for value in ylim:
                 ax.add_artist(
@@ -299,7 +187,7 @@ for star in stars:
             # arguments to pass to plot, just so we don't keep repeating them
             xc = 0.125
             xo = 0.005
-            kwargs = dict(transform=ax.transAxes, color='k', lw=plt.rcParams["axes.linewidth"], clip_on=False)
+            kwargs = dict(ms=0, transform=ax.transAxes, color='k', lw=plt.rcParams["axes.linewidth"], clip_on=False)
             ax.plot((1 + xc + xo - d, 1 + xc + xo + d), (-d, +d), **kwargs)  # top-right diagonal
             ax.plot((1 + xc + xo - d, 1 + xc + xo + d), (1 - d, 1 + d), **kwargs)        # bottom right
             ax.plot((1 + xc - xo - d, 1 + xc - xo + d), (-d, +d), **kwargs)  # top-right diagonal
@@ -345,17 +233,41 @@ for star in stars:
 
 
 
-fig, ax = plt.subplots()
+# Use nice styling for the wallclock figure.
+plt.style.use("latex_figure.mplstyle")
 
+latex_labels = {
+    "moog": r"$\textrm{MOOG}^{\dagger}$",
+    "korg": r"$\textrm{Korg}$",
+    "turbospectrum": r"$\textrm{TURBOSPECTRUM}$"
+}
+
+# Order by slowest to fastest.
+t = { k: np.sum(v) for k, v in total_times.items()}
+t = OrderedDict(sorted(t.items(), key=lambda item: item[1]))
+
+
+fig, ax = plt.subplots(figsize=(4, 2))
 yticks = list(range(len(total_times)))
-
 ax.barh(
     y=yticks,
-    width=[np.sum(v) for v in total_times.values()],
+    width=t.values(),
+    color=[("tab:blue" if method == "korg" else "#cccccc") for method in t.keys()],
+    lw=0,
 )
 ax.set_yticks(yticks)
-ax.set_yticklabels(list(total_times.keys()))
+ax.set_yticklabels([latex_labels.get(k, k) for k in t.keys()])
 ax.yaxis.set_tick_params(width=0)
-ax.set_xlabel("Total execution time / s")
+ax.set_xlabel(r"$\textrm{Wall~time}$ $\textrm{[seconds]}$")
+if "moog" in total_times:
+    # Ad footnote.
+    fig.text(
+        0.02,
+        0.02, 
+        r"$^{\dagger}$ $\textrm{Limited~to~10,000~atomic~transitions~for~each~optical~region.}$",
+        fontsize=8
+    )
+
 fig.tight_layout()
-fig.savefig("a.png")
+fig.savefig(wallclock_figure_path)
+print(f"Created {wallclock_figure_path}")

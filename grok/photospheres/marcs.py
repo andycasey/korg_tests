@@ -101,9 +101,62 @@ def loadtxt(filename, skiprows, max_rows, replace_as_nan="******"):
     return np.array(data, dtype=float)
 
 
+def write_marcs(photosphere, path):
+    
+    if photosphere.is_spherical_geometry:
+        radius_desc = "Radius [cm] at Tau(Rosseland)=1.0"
+        luminosity_desc = ""
+        mass_desc = "Mass [Msun]"
+    else:
+        radius_desc = "1 cm radius for plane-parallel models"
+        luminosity_desc = "FOR A RADIUS OF 1 cm!"
+        mass_desc = "No mass for plane-parallel models"
 
+    meta = photosphere.meta
+    contents = f"""
+  {meta['teff']:.0f}.      Teff [K].
+  {meta['flux']:1.4E} Flux [erg/cm2/s]
+  {10**meta['logg']:1.4E} Surface gravity [cm/s2]
+  {meta['microturbulence']:3.1f}        Microturbulence parameter [km/s]
+  {meta['mass']:3.1f}        {mass_desc}
+ {meta['m_h']:+.2f} {meta['alpha_m']:+.2f} Metallicity [Fe/H] and [alpha/Fe]
+  {meta['radius']:1.4E} {radius_desc}
+  {meta['luminosity']:1.4E} Luminosity [Lsun] {luminosity_desc}
+  {meta['convection_alpha']:.2f} {meta['convection_nu']:.2f} {meta['convection_y']:.3f} {meta['convection_beta']:.2f} are the convection parameters: alpha, nu, y, beta
+  {meta['X']:.5f} {meta['Y']:.5f} {meta['Z']:.2E} are X, Y and Z, +12C/13C={meta['isotope_ratio_12C_13C']:.0f}
+Logarithmic chemical number abundances, H always 12.00
+"""
+    for element in periodic_table[:92]:
+        contents += f" {meta['log_abundance_' + element]: >6.2f}"
+        if (periodic_table.index(element) + 1) % 10 == 0:
+            contents += "\n"
+    
+    contents += f"\n  {len(photosphere)} Number of depth points\n"
+    contents += "Model structure\n"
+    contents += " k lgTauR  lgTau5    Depth     T        Pe         Pg        Prad       Pturb\n"
+    for k, row in enumerate(photosphere, start=1):
+        contents += f"{k: >3.0f} {row['lgTauR']:+1.2f} {row['lgTau5']:+1.4f} {row['Depth']:+1.3E} {row['T']: >7.1f} {row['Pe']: >10.3E} {row['Pe']: >10.3E} {row['Prad']: >10.3E} {row['Pturb']: >10.3E}\n"
 
-def read_marcs(fp_or_path, structure_start=25):
+    contents += " k lgTauR  KappaRoss   Density   Mu      Vconv   Fconv/F      RHOX\n"
+    for k, row in enumerate(photosphere, start=1):
+        contents += f"{k: >3.0f} {row['lgTauR']:+1.2f} {row['KappaRoss']: >10.3E} {row['Density']: >10.3E} {row['Mu']:1.3f}  0.000E+00 0.00000 {row['RHOX']: >13.6E}\n"
+
+    contents += "Assorted logarithmic partial pressures\n"
+    contents += " k  lgPgas   H I    H-     H2     H2+    H2O    OH     CH     CO     CN     C2\n"
+    for k, row in enumerate(photosphere, start=1):
+        contents += f"{k: >3.0f} {row['lgPgas']: >6.3f} {row['H I']: >6.2f} {row['H-']: >6.2f} {row['H2']: >6.2f} {row['H2+']: >6.2f} {row['H2O']: >6.2f} {row['OH']: >6.2f} {row['CH']: >6.2f} {row['CO']: >6.2f} {row['CN']: >6.2f} {row['C2']: >6.2f}\n"
+
+    contents += " k    N2     O2     NO     NH     TiO   C2H2    HCN    C2H    HS     SiH    C3H\n"
+    for k, row in enumerate(photosphere, start=1):
+        contents += f"{k: >3.0f} {row['N2']: >6.2f} {row['O2']: >6.2f} {row['NO']: >6.2f} {row['NH']: >6.2f} {row['TiO']: >6.2f} {row['2H2']: >6.2f} {row['HCN']: >6.2f} {row['C2H']: >6.2f} {row['HS']: >6.2f} {row['SiH']: >6.2f} {row['C3H']: >6.2f}\n"
+    contents += " k    C3     CS     SiC   SiC2    NS     SiN    SiO    SO     S2     SiS   Other\n"
+    for k, row in enumerate(photosphere, start=1):
+        contents += f"{k: >3.0f} {row['C3']: >6.2f} {row['CS']: >6.2f} {row['SiC']: >6.2f} {row['SiC2']: >6.2f} {row['NS']: >6.2f} {row['SiN']: >6.2f} {row['SiO']: >6.2f} {row['SO']: >6.2f} {row['S2']: >6.2f} {row['SiS']: >6.2f} {row['Other']: >6.2f}\n"
+
+    with open(path, "w") as fp:
+        fp.write(contents)
+
+def read_marcs(fp_or_path, structure_start=25, __include_extra_columns=True):
     
     filename, contents, content_stream = safe_open(fp_or_path)
 
@@ -112,7 +165,7 @@ def read_marcs(fp_or_path, structure_start=25):
 
     S, N = (structure_start, meta["n_depth"])
     column_locations = [
-        [S, ("k", "lgTauR", "lgTau5", "Depth", "T", "Pe", "Pg", "Prad", "Pturb")],
+        [S, ("k", "lgTauR", "lgTau5", "Depth", "T", "Pe", "P", "Prad", "Pturb")],
         [S + N + 1, ("k", "lgTauR", "KappaRoss", "Density", "Mu", "Vconv", "Fconv/F", "RHOX")],
         [S + (N + 1)*2 + 1, ("k", "lgPgas", "H I", "H-", "H2", "H2+", "H2O", "OH", "CH", "CO", "CN", "C2")],
         [S + (N + 1)*3 + 1, ("k", "N2", "O2", "NO", "NH", "TiO", "2H2", "HCN", "C2H", "HS", "SiH", "C3H")],
@@ -131,7 +184,7 @@ def read_marcs(fp_or_path, structure_start=25):
         "Depth": ("Depth (depth=0 and tau(Rosseland)=1.0)", "cm"),
         "T": ("Temperature", "K"),
         "Pe": ("Electron pressure", "dyn/cm^2"),
-        "Pg": ("Gas pressure", "dyn/cm^2"),
+        "P": ("Gas pressure", "dyn/cm^2"),
         "Prad": ("Radiation pressure", "dyn/cm^2"),
         "Pturb": ("Turbulence pressure", "dyn/cm^2"),
         "KappaRoss": ("Rosseland opacity", "cm^2/g"),
@@ -168,8 +221,11 @@ def read_marcs(fp_or_path, structure_start=25):
     
     # TODO: This is an awful hack that relies on you having both MARCS formats.
     #       It's only necessary for MOOG. God it's all a hack.
-    alt_filename = filename.replace("marcs_mod", "marcs_krz").replace(".mod", ".krz")
-    photosphere["XNE"] = Photosphere.read(alt_filename)["XNE"]
+    if __include_extra_columns:
+        alt_filename = filename.replace("marcs_mod", "marcs_krz").replace(".mod", ".krz")
+        alt_photosphere = Photosphere.read(alt_filename, __include_extra_columns=False)
+        for key in set(alt_photosphere.dtype.names).difference(photosphere.dtype.names):
+            photosphere[key] = alt_photosphere[key]
     return photosphere
 
 def identify_marcs(origin, *args, **kwargs):
@@ -177,4 +233,5 @@ def identify_marcs(origin, *args, **kwargs):
             args[0].lower().endswith((".mod", ".mod.gz")))
 
 registry.register_reader("marcs", Photosphere, read_marcs)
+registry.register_writer("marcs", Photosphere, write_marcs)
 registry.register_identifier("marcs", Photosphere, identify_marcs)

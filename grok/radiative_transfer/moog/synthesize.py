@@ -33,6 +33,7 @@ def moog_synthesize(
         n_chunks=1,
         verbose=False,
         dir=None,
+        timeout=30,
         **kwargs
     ):
     
@@ -153,25 +154,26 @@ def moog_synthesize(
             ("rectified_flux", [])
         ])
         for chunk in range(n_chunks):
-            lambda_min = lambda_min + chunk_size * chunk
-            lambda_max = lambda_min + chunk_size * (chunk + 1)
+            chunk_lambda_min = lambda_min + chunk_size * chunk
+            chunk_lambda_max = lambda_min + chunk_size * (chunk + 1)
             lines_in = _path(f"lines.in{chunk}")
 
             kwds.update(
                 lines_in=os.path.basename(lines_in),
-                lambda_min=lambda_min,
-                lambda_max=lambda_max,
+                lambda_min=chunk_lambda_min,
+                lambda_max=chunk_lambda_max,
                 standard_out=f"synth.std.out.{chunk}",
                 summary_out=f"synth.sum.out.{chunk}"
             )
 
             chunk_transitions = Transitions(sorted(
                 filter(
-                    lambda t: (lambda_max + opacity_contribution) >= t.lambda_air.value >= (lambda_min - opacity_contribution),
+                    lambda t: (chunk_lambda_max + opacity_contribution) >= t.lambda_air.value >= (chunk_lambda_min - opacity_contribution),
                     use_transitions
                 ),
                 key=lambda t: t.lambda_air
             )) 
+            assert len(chunk_transitions) > 0, "No transitions in this chunk"
 
             copy_or_write(
                 chunk_transitions,
@@ -179,15 +181,19 @@ def moog_synthesize(
                 format=kwargs.get("transitions_format", "moog")
             )                      
 
-            # Write the control file.
+            # Write the control file for this chunk.
             contents = template.format(**kwds)
-            control_path = _path("batch.par")
-            with open(control_path, "w") as fp:
-                fp.write(contents)
             with open(_path(f"batch.par{chunk}"), "w") as fp:
                 fp.write(contents)
             
+            # Create a symbolic link to 'batch.par'
+            control_path = _path("batch.par")
+            if os.path.exists(control_path):
+                os.unlink(control_path)
+            os.symlink(_path(f"batch.par{chunk}"), control_path)
+
             print(f"Executing chunk {chunk} for MOOGSILENT")
+
 
             t_init = time()
             process = subprocess.run(
@@ -196,7 +202,8 @@ def moog_synthesize(
                 stderr=subprocess.PIPE,
                 cwd=os.path.dirname(control_path),
                 input=os.path.basename(control_path) + "\n"*100,
-                encoding="ascii"
+                encoding="ascii",
+                timeout=timeout
             )
             wallclock_time += (time() - t_init)
             if process.returncode != 0:
@@ -205,9 +212,12 @@ def moog_synthesize(
             # Copy outputs.    
             output = parse_summary_synth_output(_path(kwds["summary_out"]))
 
+            # Remove this symbolic link to batch.par
+            os.unlink(control_path)
+
             wavelength, rectified_flux, meta = output[0]
-            spectrum["wavelength"].extend(wavelength)
-            spectrum["rectified_flux"].extend(rectified_flux)
+            spectrum["wavelength"].extend(wavelength[:-1]) # the last pixel gets synthesized next time.
+            spectrum["rectified_flux"].extend(rectified_flux[:-1])
             meta["dir"] = dir
 
         meta["wallclock_time"] = wallclock_time
@@ -231,7 +241,8 @@ def moog_synthesize(
             stderr=subprocess.PIPE,
             cwd=os.path.dirname(control_path),
             input=os.path.basename(control_path) + "\n"*100,
-            encoding="ascii"
+            encoding="ascii",
+            timeout=timeout
         )
         t_moogsilent = time() - t_init
         if process.returncode != 0:

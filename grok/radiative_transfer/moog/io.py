@@ -40,11 +40,11 @@ def write_photosphere_for_moog(photosphere, path, include_molecules=default_mole
     """
 
     format = "KURUCZ"        
-    if photosphere.meta["read_format"] == "marcs":
-        # TODO: Consider if this would be resolved by common names when loading the photospheres in.
-        line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{line[Pg]:10.3e}{line[XNE]:10.3e}{line[KappaRoss]:10.3e}"
-    else:
+    if photosphere.meta["read_format"] == "atlas9":
         line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{line[P]:10.3e}{line[XNE]:10.3e}{line[ABROSS]:10.3e}"
+    else:
+        line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{line[P]:10.3e}{line[XNE]:10.3e}{line[KappaRoss]:10.3e}"
+
         
     '''
     available_formats = {

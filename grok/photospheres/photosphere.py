@@ -23,3 +23,4 @@ class Photosphere(Table):
     @property
     def is_plane_parallel_geometry(self):
         return not self.is_spherical_geometry
+

@@ -82,7 +82,7 @@ def parse_meta(contents):
 
 
 
-def read_kurucz(fp_or_path, structure_start=13):
+def read_kurucz(fp_or_path, structure_start=13, __include_extra_columns=True):
 
     filename, contents, content_stream = safe_open(fp_or_path)
 
@@ -125,12 +125,25 @@ def read_kurucz(fp_or_path, structure_start=13):
     descriptions = { k: desc for k, (desc, unit) in column_descriptions.items() if k in data }
     units = { k: unit for k, (desc, unit) in column_descriptions.items() if k in data  }
     
-    return Photosphere(
+    photosphere = Photosphere(
         data=data,
         units=units,
         descriptions=descriptions,
         meta=meta
     )
+
+    # See marcs.py comment on this. 
+    # MOOG needs more things than the krz format can offer.
+    
+    # TODO: This is an awful hack that relies on you having both MARCS formats.
+    #       It's only necessary for MOOG. God it's all a hack.
+    if __include_extra_columns:
+        alt_filename = filename.replace("marcs_krz", "marcs_mod").replace(".krz", ".mod")
+        alt_photosphere = Photosphere.read(alt_filename, __include_extra_columns=False)
+        for key in ("KappaRoss", "P"):
+            photosphere[key] = alt_photosphere[key]
+
+    return photosphere
 
 def write_kurucz(photosphere, path, **kwargs):
     """
@@ -169,19 +182,19 @@ def write_kurucz(photosphere, path, **kwargs):
         "thomson_scattering_by_electrons",
         "rayleigh_scattering_by_h2"
     )
-    opacity_switches = [int(meta.get(k, False)) for k in opacity_keys]
+    opacity_switches = [2 if meta.get(k, None) is None else int(meta.get(k, None)) for k in opacity_keys]
 
     contents = dedent(
     f"""
-    {meta['header']}
+    {meta.get('header', 'NO HEADER')}
     T EFF={meta['teff']:.0f}. GRAV= {meta['logg']:.2f} MODEL TYPE= {model_type} WLSTD= {meta.get('standard_wavelength', 5000):.0f} {geometry_desc}
     {' '.join(map(str, opacity_switches))} - OPACITY SWITCHES
-    """)
+    """).lstrip()
 
     N_elements = 99
     normalized_abundances = []
     for i, element in enumerate(periodic_table[:N_elements]):
-        value = meta[f'log10_normalized_abundance_{element}']
+        value = meta.get(f'log10_normalized_abundance_{element}', -20)
         if 10**value > 0.01:
             value = 10**value
         if element in ("H", "He"):
