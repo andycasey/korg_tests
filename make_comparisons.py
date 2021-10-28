@@ -182,8 +182,12 @@ for method_description, options in config["methods"].items():
                         if should_keep(t) and (lambda_max + window) >= t.lambda_air.value >= (lambda_min - window)
                 ])
                 transitions_desc = f"using {len(transitions)} transitions"
+            
+            # Check if we are supplying hydrogen lines to this region, and whether we should be.
+            if not transition_kwds["has_hydrogen_lines"] and "hydrogen_lines" in options:
+                options["hydrogen_lines"] = False
 
-            print(f"Executing {method} ({method}) for {star_description} between {lambda_min} and {lambda_max} {transitions_desc}")
+            print(f"Executing {method} ({method}) for {star_description} between {lambda_min} and {lambda_max} {transitions_desc} with {options}")
 
             try:
                 spectrum, meta = synthesize(

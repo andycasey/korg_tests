@@ -59,6 +59,7 @@ transitions:
   - 0.01
   paths:
   - data/transitions/all-3660-3680.vald
+  has_hydrogen_lines: false
 - lambdas:
   - 3930
   - 3950
@@ -66,6 +67,7 @@ transitions:
   paths: 
   - data/transitions/all-3930-3950.vald
   strong_path: data/transitions/strong-3930-3950.vald
+  has_hydrogen_lines: false
 - lambdas: 
   - 5160
   - 5190
@@ -74,6 +76,7 @@ transitions:
   - data/transitions/all-5160-5176.vald
   - data/transitions/all-5176-5190.vald
   strong_path: data/transitions/strong-5160-5190.vald
+  has_hydrogen_lines: false
 - lambdas: 
   - 6540
   - 6578
@@ -81,6 +84,7 @@ transitions:
   paths: 
   - data/transitions/all-6540-6559.vald
   - data/transitions/all-6559-6578.vald
+  has_hydrogen_lines: true
 - lambdas: 
   - 15000
   - 15500
@@ -88,3 +92,4 @@ transitions:
   paths: 
   - data/transitions/turbospec.20180901.atoms
   - data/transitions/turbospec.20180901.molec
+  has_hydrogen_lines: true
