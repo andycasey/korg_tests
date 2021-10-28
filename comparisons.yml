@@ -45,6 +45,12 @@ stars:
     observation_path: data/ESPaDOnS_HD122563_47000.fits
 transitions:
 - lambdas:
+  - 3660
+  - 3680
+  - 0.01
+  paths:
+  - data/transitions/all-3660-3680.vald
+- lambdas:
   - 3930
   - 3950
   - 0.01
