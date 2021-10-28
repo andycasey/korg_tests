@@ -30,9 +30,11 @@ open("spectrum.out", "w") do fp
 end
 println("Sold!")
 
-spectrum = synthesize("{atmosphere_path}", "linelist.fake", {metallicity:.2f})
+# Now do continuum.
+atm = Korg.read_model_atmosphere("{atmosphere_path}")
+continuum = Korg.synthesize(atm, [], {lambda_vacuum_min}:0.01:{lambda_vacuum_max}; metallicity={metallicity:.2f})
 open("continuum.out", "w") do fp
-    for flux in spectrum.flux
+    for flux in continuum.flux
         println(fp, flux)
     end
 end

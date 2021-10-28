@@ -75,15 +75,6 @@ def synthesize(
         )
         kwds["linelist_path"] = transitions_path_basename
 
-    # Write the fake line list template.
-    with resource_stream(__name__, "weak_linelist.template") as fp:
-        template = fp.read()
-        if isinstance(template, bytes):
-            template = template.decode("utf-8")
-
-    with open(_path("linelist.fake"), "w") as fp:
-        fp.write(template)
-
     # Write the template.
     with resource_stream(__name__, template_path) as fp:
         template = fp.read()
