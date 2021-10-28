@@ -141,7 +141,8 @@ for method_description, options in config["methods"].items():
                     strong_transitions = None
                     N_strong_transitions = 0
                 else:
-                    strong_transitions = Transitions.read(strong_path, format="vald")
+                    strong_transitions_format = "vald" if strong_path.endswith(".vald") else None
+                    strong_transitions = Transitions.read(strong_path, format=strong_transitions_format)
                     N_strong_transitions = len(strong_transitions)
                     before = len(transitions)
                     transitions = [t for t in transitions if t not in strong_transitions]

@@ -93,4 +93,5 @@ transitions:
   paths: 
   - data/transitions/turbospec.20180901.atoms
   - data/transitions/turbospec.20180901.molec
+  strong_path: data/transitions/strong-15000-15500.atoms
   has_hydrogen_lines: true
