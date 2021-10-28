@@ -134,8 +134,9 @@ Logarithmic chemical number abundances, H always 12.00
     contents += f"\n  {len(photosphere)} Number of depth points\n"
     contents += "Model structure\n"
     contents += " k lgTauR  lgTau5    Depth     T        Pe         Pg        Prad       Pturb\n"
+    depth_sign = +1 if photosphere["Depth"][0] < 0 else -1
     for k, row in enumerate(photosphere, start=1):
-        contents += f"{k: >3.0f} {row['lgTauR']:+1.2f} {row['lgTau5']:+1.4f} {row['Depth']:+1.3E} {row['T']: >7.1f} {row['Pe']: >10.3E} {row['Pe']: >10.3E} {row['Prad']: >10.3E} {row['Pturb']: >10.3E}\n"
+        contents += f"{k: >3.0f} {row['lgTauR']:+1.2f} {row['lgTau5']:+1.4f} {depth_sign * row['Depth']:+1.3E} {row['T']: >7.1f} {row['Pe']: >10.3E} {row['Pe']: >10.3E} {row['Prad']: >10.3E} {row['Pturb']: >10.3E}\n"
 
     contents += " k lgTauR  KappaRoss   Density   Mu      Vconv   Fconv/F      RHOX\n"
     for k, row in enumerate(photosphere, start=1):
@@ -235,6 +236,10 @@ def read_marcs(fp_or_path, structure_start=25, __include_extra_columns=True):
             # So we will use that instead.
             extra_columns.append("Depth")
         
+            # Oh god it gets worse.
+            # Turbospectrum *expects* the Depth to go from negative to positive.
+            # Korg sensibly expects the Depth to go from positive to negative.
+
         for key in extra_columns:
             photosphere[key] = alt_photosphere[key]
         

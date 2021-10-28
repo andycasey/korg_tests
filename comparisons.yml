@@ -84,6 +84,7 @@ transitions:
   paths: 
   - data/transitions/all-6540-6559.vald
   - data/transitions/all-6559-6578.vald
+  #strong_path: data/transitions/strong-6540-6578.vald
   has_hydrogen_lines: true
 - lambdas: 
   - 15000

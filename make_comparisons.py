@@ -41,6 +41,10 @@ for method_description, options in config["methods"].items():
 
         for transition_kwds in config["transitions"]:
             
+            # Copy options instance
+            options_instance = {}
+            options_instance.update(options)
+
             lambda_min, lambda_max, lambda_step = lambdas = transition_kwds["lambdas"]
 
             print(f"Checking {method_description} for {star_description} and {lambda_min} to {lambda_max}")
@@ -146,7 +150,7 @@ for method_description, options in config["methods"].items():
                     print(f"Now there are {len(transitions)} after adding {N_strong_transitions} strong transitions")
             
                 transitions = Transitions(transitions)
-                options.update(
+                options_instance.update(
                     strong_transitions=strong_transitions,
                     n_chunks=n_chunks
                 )
@@ -184,10 +188,11 @@ for method_description, options in config["methods"].items():
                 transitions_desc = f"using {len(transitions)} transitions"
             
             # Check if we are supplying hydrogen lines to this region, and whether we should be.
-            if not transition_kwds["has_hydrogen_lines"] and "hydrogen_lines" in options:
-                options["hydrogen_lines"] = False
+            #if not transition_kwds["has_hydrogen_lines"] and "hydrogen_lines" in options_instance:
+            #    print("Turning off hydrogen lines because there aren't any in this region")
+            #    options_instance["hydrogen_lines"] = False
 
-            print(f"Executing {method} ({method}) for {star_description} between {lambda_min} and {lambda_max} {transitions_desc} with {options}")
+            print(f"Executing {method} ({method_description}) for {star_description} between {lambda_min} and {lambda_max} {transitions_desc} with {options_instance}")
 
             try:
                 spectrum, meta = synthesize(
@@ -195,7 +200,7 @@ for method_description, options in config["methods"].items():
                     transitions,
                     method=method,
                     lambdas=lambdas,
-                    options=options,
+                    options=options_instance,
                 )
 
             except:
