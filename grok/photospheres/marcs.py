@@ -224,8 +224,18 @@ def read_marcs(fp_or_path, structure_start=25, __include_extra_columns=True):
     if __include_extra_columns:
         alt_filename = filename.replace("marcs_mod", "marcs_krz").replace(".mod", ".krz")
         alt_photosphere = Photosphere.read(alt_filename, __include_extra_columns=False)
-        for key in set(alt_photosphere.dtype.names).difference(photosphere.dtype.names):
+        extra_columns = list(set(alt_photosphere.dtype.names).difference(photosphere.dtype.names))
+
+        # You won't believe this, but the "Depth" is recorded in the KRZ and MOD formats, but in
+        # the MOD format the Depth goes from negative to positive, and then in KRZ format the 
+        # Depth goes from positive to negative.
+        
+        # The KRZ format has more significant digits recorded, and it is setup in in the correct direction.
+        # So we will use that instead.
+        extra_columns.append("Depth")
+        for key in extra_columns:
             photosphere[key] = alt_photosphere[key]
+        
     return photosphere
 
 def identify_marcs(origin, *args, **kwargs):
