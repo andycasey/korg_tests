@@ -1,10 +1,19 @@
 methods:
-  korg: {}
+  korg:
+    hydrogen_lines: true
+  korg_no-hydrogen-lines:
+    hydrogen_lines: false
   moog: {}
   turbospectrum:
     skip_irrelevant_transitions: true
     update_missing_data: true
     photosphere_format: marcs
+    hydrogen_lines: true
+  turbospectrum_no-hydrogen-lines:
+    skip_irrelevant_transitions: true
+    update_missing_data: true
+    photosphere_format: marcs
+    hydrogen_lines: false
 stars:
   Sun:
     model_kwargs:

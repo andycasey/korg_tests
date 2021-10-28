@@ -28,12 +28,13 @@ OVERWRITE = False
 with open("comparisons.yml", "r") as fp:
     config = yaml.load(fp, Loader=yaml.FullLoader)
 
-output_prefix = lambda star_description, lambda_min, lambda_max, method: f"{star_description}_{lambda_min:.0f}_{lambda_max:.0f}_{method}-alpha"
+output_prefix = lambda star_description, lambda_min, lambda_max, method_description: f"{star_description}_{lambda_min:.0f}_{lambda_max:.0f}_{method_description}"
 
 window = 2
 
-for method, options in config["methods"].items():
-
+for method_description, options in config["methods"].items():
+    
+    method, *desc = method_description.split("_")
     for star_description, star in config["stars"].items():
 
         photosphere = None
@@ -42,14 +43,14 @@ for method, options in config["methods"].items():
             
             lambda_min, lambda_max, lambda_step = lambdas = transition_kwds["lambdas"]
 
-            print(f"Checking {method} for {star_description} and {lambda_min} to {lambda_max}")
+            print(f"Checking {method_description} for {star_description} and {lambda_min} to {lambda_max}")
 
-            basename = output_prefix(star_description, lambda_min, lambda_max, method)
+            basename = output_prefix(star_description, lambda_min, lambda_max, method_description)
 
             output_path = f"executions/{basename}.pkl"
             output_dir = f"executions/{basename}"
             if os.path.exists(output_path) and not OVERWRITE:
-                print(f"Skipping {method} on {star_description} from {lambda_min} to {lambda_max}")
+                print(f"Skipping {method_description} on {star_description} from {lambda_min} to {lambda_max}")
                 continue
 
             if photosphere is None:
@@ -83,6 +84,7 @@ for method, options in config["methods"].items():
                 # Using max_transitions = 25_000 requires us to do ~50 chunks for the bluest region AND to
                 # set opacity_contribution = 1.0, so it just cannot be practically done because MOOG fails.
                 max_transitions_and_chunks = {
+                    3660: (10_000, 2),
                     3930: (10_000, 2),
                     5160: (10_000, 2), # (25k, 10) fails
                     6540: (15_000, 2), # (25k, 20) fails 
@@ -181,7 +183,7 @@ for method, options in config["methods"].items():
                 ])
                 transitions_desc = f"using {len(transitions)} transitions"
 
-            print(f"Executing {method} for {star_description} between {lambda_min} and {lambda_max} {transitions_desc}")
+            print(f"Executing {method} ({method}) for {star_description} between {lambda_min} and {lambda_max} {transitions_desc}")
 
             try:
                 spectrum, meta = synthesize(
