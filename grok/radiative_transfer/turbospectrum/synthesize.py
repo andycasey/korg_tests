@@ -17,7 +17,7 @@ def turbospectrum_bsyn(
         opacities=None,
         verbose=False,
         dir=None,
-        include_hydrogen_transitions=False,
+        hydrogen_lines=False,
         transition_format="turbospectrum",
         skip_irrelevant_transitions=True,
         update_missing_data=True,
@@ -96,7 +96,7 @@ def turbospectrum_bsyn(
     
         transition_paths_formatted = [transition_basename_format.format(i=i) for i in range(T)]
 
-    if include_hydrogen_transitions:
+    if hydrogen_lines:
         transition_paths_formatted.append("DATA/Hlinedata")
         T += 1
 

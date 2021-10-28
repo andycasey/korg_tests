@@ -17,6 +17,7 @@ def synthesize(
         transitions,
         lambdas=None,
         dir=None,
+        hydrogen_lines=True,
         **kwargs
     ):
     """
@@ -50,7 +51,8 @@ def synthesize(
         # I'm just giving a different metallicity for the initial run so that people don't 
         # incorrectly think the result from the second run is actually being cached.
         fake_metallicity=photosphere.meta["m_h"] - 0.25,
-        korg_read_transitions_format=kwargs.get("korg_read_transitions_format", "vald")
+        korg_read_transitions_format=kwargs.get("korg_read_transitions_format", "vald"),
+        hydrogen_lines=str(hydrogen_lines).lower()
     )
 
     # I wish I knew some Julia... eeek!
