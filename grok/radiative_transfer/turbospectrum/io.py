@@ -17,6 +17,9 @@ def write_photosphere_for_turbospectrum(photosphere, path):
         The path to store the photosphere.    
     """
 
+    photosphere.write(path, format="marcs")
+    return None
+    """
     # TODO: A hack because we are testing things without interpolation here.
     if photosphere.meta.get("read_format", None) == "marcs":
         print(f"WARNING: Copying MARCS file directly. I hope you're not interpolating atmospheres!")
@@ -30,10 +33,10 @@ def write_photosphere_for_turbospectrum(photosphere, path):
 
         photosphere.meta["read_format"] = None
         photosphere.write("tmp2", format="turbospectrum")
-        raise a
+        raise
+        return None 
+    """
 
-        return None
-        
     # TODO: Turbospectrum describes this format as 'KURUCZ', but it looks like an ATLAS-style format to me.
     # NOTE: Turbospectrum does not read the abundance information from the photosphere. It reads it from the control file.
     output = (
