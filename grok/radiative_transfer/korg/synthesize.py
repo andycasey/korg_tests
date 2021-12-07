@@ -28,9 +28,9 @@ def synthesize(
     photosphere_path_basename = "atmosphere"
 
     if lambdas is not None:
-        lambda_air_min, lambda_air_max, lambda_air_delta = lambdas
+        lambda_air_min, lambda_air_max, lambda_delta = lambdas
     else:
-        lambda_air_min, lambda_air_max, lambda_air_delta = get_default_lambdas(transitions)
+        lambda_air_min, lambda_air_max, lambda_delta = get_default_lambdas(transitions)
 
     _path = lambda basename: os.path.join(dir or "", basename)
 
@@ -40,24 +40,32 @@ def synthesize(
         _path(photosphere_path_basename),
         format=kwargs.get("photosphere_format", "kurucz")
     )    
+
+    lambda_vacuum_min = np.round(air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value, 2) - 0.01
+    lambda_vacuum_max = np.round(air_to_vacuum(lambda_air_max * u.Angstrom).to("Angstrom").value, 2) + 0.01
     
     kwds = dict(
         # Korg works in vacuum wavelengths.
         # TODO: Don't assume units for lambdas.
-        lambda_vacuum_min=air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value,
-        lambda_vacuum_max=air_to_vacuum(lambda_air_max * u.Angstrom).to("Angstrom").value,
+        lambda_vacuum_min=lambda_vacuum_min,
+        lambda_vacuum_max=lambda_vacuum_max,
+        lambda_vacuum_delta=lambda_delta,
         atmosphere_path=photosphere_path_basename,
         metallicity=photosphere.meta["m_h"],
         # I'm just giving a different metallicity for the initial run so that people don't 
         # incorrectly think the result from the second run is actually being cached.
         fake_metallicity=photosphere.meta["m_h"] - 0.25,
         korg_read_transitions_format=kwargs.get("korg_read_transitions_format", "vald"),
-        hydrogen_lines=str(hydrogen_lines).lower()
+        hydrogen_lines=str(hydrogen_lines).lower(),
+        microturbulence=photosphere.meta["microturbulence"],
     )
+
 
     # I wish I knew some Julia... eeek!
     if isinstance(transitions, (list, tuple)) and len(transitions) == 2:
         template_path = "template_two_linelists.jl"
+
+        assert transitions[-1].endswith(".molec"), "Put the molecular line list last"
         for i, each in enumerate(transitions):
             basename = f"transitions_{i:.0f}"
             copy_or_write(
@@ -117,18 +125,19 @@ def synthesize(
     t_second = float(next(search).groupdict()["seconds"])
     
     flux = np.loadtxt(_path("spectrum.out"))
-    wavelength = np.arange(lambda_air_min, lambda_air_max + lambda_air_delta, lambda_air_delta)[:len(flux)]
+    #wavelength = np.arange(lambda_air_min, lambda_air_max + lambda_delta, lambda_delta)[:len(flux)]
+    wavelength_vacuum = np.arange(lambda_vacuum_min, lambda_vacuum_max + lambda_delta, lambda_delta)[:len(flux)]
+    wavelength_air = vacuum_to_air(wavelength_vacuum * u.Angstrom).to("Angstrom").value
 
     continuum = np.loadtxt(_path("continuum.out"))
 
-
     result = OrderedDict([
-        ("wavelength", wavelength),
+        ("wavelength", wavelength_air),
         ("wavelength_unit", "Angstrom"),
         ("flux", flux),
         ("flux_unit", "erg / (Angstrom cm2 s"),
         ("continuum", continuum),
-        ("rectified_flux", flux / continuum)
+        ("rectified_flux", flux / continuum),
     ])
 
     meta = dict(
@@ -137,7 +146,10 @@ def synthesize(
         t_first=t_first,
         t_subprocess=t_subprocess,
         stdout=process.stdout,
-        stderr=process.stderr
+        stderr=process.stderr,
+        lambda_vacuum_min=lambda_vacuum_min,
+        lambda_vacuum_max=lambda_vacuum_max,
+        lambda_vacuum_delta=lambda_delta,
     )
     # Parse the version used.
     match = re.search("Korg v(?P<korg_version_major>\d+)\.(?P<korg_version_minor>\d+)\.(?P<korg_version_micro>\d+)", process.stdout)
