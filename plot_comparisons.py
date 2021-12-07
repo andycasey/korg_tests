@@ -12,7 +12,7 @@ from scipy.ndimage import gaussian_filter
 from grok.transitions.utils import (air_to_vacuum, vacuum_to_air)
 
 
-korg_version = (0, 4, 1) # TODO: Check this from the meta of each file that it matches
+korg_version = (0, 5, 0) # TODO: Check this from the meta of each file that it matches
 korg_major_version, korg_minor_version, korg_micro_version = korg_version
 
 # Specify some paths. The output_prefix should match that from `make_comparisons.py`
@@ -155,7 +155,7 @@ for star_description, star in config["stars"].items():
 
         korg_flux_air = np.interp(
             ts_wl_air,
-            korg_wl_air,#vacuum_to_air(korg_wl_vac),
+            korg_wl_air,
             korg_flux
         )
 
@@ -341,7 +341,7 @@ ax.yaxis.set_tick_params(width=0)
 ax.set_xlabel(r"$\textrm{Total~execution~time~for~all~syntheses}$ $\textrm{[seconds]}$")
 fig.tight_layout()
 
-fig.savefig("time_elapsed.png", dpi=300)
+fig.savefig(f"time-elapsed-v{korg_major_version}.{korg_minor_version}.{korg_micro_version}.png", dpi=300)
 
 
 #print(f"Created {wallclock_figure_path}")
@@ -447,4 +447,4 @@ for ax_column in axes.T:
 
 
 fig.tight_layout()
-fig.savefig("time_elapsed_breakdown.png", dpi=300)
+fig.savefig(f"time-elapsed-breakdown-v{korg_major_version}.{korg_minor_version}.{korg_micro_version}.png", dpi=300)
