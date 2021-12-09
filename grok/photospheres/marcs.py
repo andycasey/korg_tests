@@ -136,7 +136,7 @@ Logarithmic chemical number abundances, H always 12.00
     contents += " k lgTauR  lgTau5    Depth     T        Pe         Pg        Prad       Pturb\n"
     depth_sign = +1 if photosphere["Depth"][0] < 0 else -1
     for k, row in enumerate(photosphere, start=1):
-        contents += f"{k: >3.0f} {row['lgTauR']:+1.2f} {row['lgTau5']:+1.4f} {depth_sign * row['Depth']:+1.3E} {row['T']: >7.1f} {row['Pe']: >10.3E} {row['Pg']: >10.3E} {row['Prad']: >10.3E} {row['Pturb']: >10.3E}\n"
+        contents += f"{k: >3.0f} {row['lgTauR']:+1.2f} {row['lgTau5']:+1.4f} {depth_sign * row['Depth']:+1.3E} {row['T']: >7.1f} {row['Pe']: >10.3E} {row['P']: >10.3E} {row['Prad']: >10.3E} {row['Pturb']: >10.3E}\n"
 
     contents += " k lgTauR  KappaRoss   Density   Mu      Vconv   Fconv/F      RHOX\n"
     for k, row in enumerate(photosphere, start=1):
