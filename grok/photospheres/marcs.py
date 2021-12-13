@@ -166,7 +166,7 @@ def read_marcs(fp_or_path, structure_start=25, __include_extra_columns=True):
 
     S, N = (structure_start, meta["n_depth"])
     column_locations = [
-        [S, ("k", "lgTauR", "lgTau5", "Depth", "T", "Pe", "P", "Prad", "Pturb")],
+        [S, ("k", "lgTauR", "lgTau5", "Depth", "T", "Pe", "Pg", "Prad", "Pturb")],
         [S + N + 1, ("k", "lgTauR", "KappaRoss", "Density", "Mu", "Vconv", "Fconv/F", "RHOX")],
         [S + (N + 1)*2 + 1, ("k", "lgPgas", "H I", "H-", "H2", "H2+", "H2O", "OH", "CH", "CO", "CN", "C2")],
         [S + (N + 1)*3 + 1, ("k", "N2", "O2", "NO", "NH", "TiO", "2H2", "HCN", "C2H", "HS", "SiH", "C3H")],
@@ -179,26 +179,33 @@ def read_marcs(fp_or_path, structure_start=25, __include_extra_columns=True):
         data.update(dict(zip(column_names, values.T)))
 
     column_descriptions = {
+        # See https://marcs.astro.uu.se/documents/auxiliary/readmarcs.f
         "k": ("Depth point", "-"),
         "lgTauR": ("log(tau(Rosseland))", "-"),
         "lgTau5": ("log(tau(5000 Angstroms))", "-"),
         "Depth": ("Depth (depth=0 and tau(Rosseland)=1.0)", "cm"),
         "T": ("Temperature", "K"),
         "Pe": ("Electron pressure", "dyn/cm^2"),
-        "P": ("Gas pressure", "dyn/cm^2"),
+        "Pg": ("Gas pressure", "dyn/cm^2"),
         "Prad": ("Radiation pressure", "dyn/cm^2"),
         "Pturb": ("Turbulence pressure", "dyn/cm^2"),
         "KappaRoss": ("Rosseland opacity", "cm^2/g"),
         "Density": ("Density", "g/cm^3"),
         "Mu": ("Mean molecular weight", "amu"),
         "Vconv": ("Convective velocity", "cm/s"),
-        "RHOX": ("Mass column density", "g/cm^2"),
+        "Fconv/F": ("Fractional convective flux", "-"),
+        "RHOX": ("Column mass above point k", "g/cm^2"),
     }
     # Add descriptions for partial pressure columns
     index = list(data.keys()).index("H I")
     for partial_pressure_column_name in list(data.keys())[index:]:
+        # For Other, change the description.
+        if partial_pressure_column_name == "Other":
+            desc = "pressure of not listed gas constituents"
+        else:
+            desc = partial_pressure_column_name
         column_descriptions[partial_pressure_column_name] = (
-            f"log({partial_pressure_column_name} pressure/[1 dyn/cm^2])",
+            f"log({desc} pressure/[1 dyn/cm^2])",
             "-"
         )
 
@@ -222,6 +229,9 @@ def read_marcs(fp_or_path, structure_start=25, __include_extra_columns=True):
     
     # TODO: This is an awful hack that relies on you having both MARCS formats.
     #       It's only necessary for MOOG. God it's all a hack.
+    
+    # TODO: What we should do is calculate the number densities from the gas pressure
+    #       and the electron pressure.
     if __include_extra_columns:
         alt_filename = filename.replace("marcs_mod", "marcs_krz").replace(".mod", ".krz")
         alt_photosphere = Photosphere.read(alt_filename, __include_extra_columns=False)
