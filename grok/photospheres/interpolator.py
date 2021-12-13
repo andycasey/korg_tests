@@ -480,6 +480,11 @@ class NewPhotosphereInterpolator:
         for key in self.grid_keywords:
             photosphere.meta[key] = point[key]
 
+        for key in photosphere.dtype.names:
+            if key.startswith("__"):
+                photosphere[key[2:]] = photosphere[key]
+                del photosphere[key]
+
         return photosphere
 
 
