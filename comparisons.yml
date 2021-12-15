@@ -17,12 +17,14 @@ methods:
 stars:
   Sun:
     model_kwargs:
-      photosphere_grid_wildmask: data/photospheres/marcs_mod/p*_t02_st_*a+0.00*
+      photosphere_grid_wildmask: data/photospheres/marcs_mod/p*_t02_st_z+0.00_a+0.00*
+      #data/photospheres/marcs_mod/p*_t02_st_*a+0.00*
       photosphere_point:
         logg: 4.4
         m_h: 0
         microturbulence: 1.0
         teff: 5777
+        alpha_m: 0
     observation_path: data/ATLAS.Sun_47000.fits
   Arcturus:
     model_kwargs:

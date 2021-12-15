@@ -11,7 +11,9 @@ from .photosphere import Photosphere
 
 class NewPhotosphereInterpolator:
 
-    def __init__(self, photospheres, grid_keywords=None, decimals=5, method="linear", rescale=True, basis_column_name="lgTauR", interpolate_log_quantities=None):
+    default_interpolate_log_quantities = ("RHOX", "XNE", "numdens_other", "Pe", "Pg", "KappaRoss", "Density", "Depth")
+
+    def __init__(self, photospheres, grid_keywords=None, decimals=5, method="linear", rescale=True, basis_column_name="lgTauR", interpolate_log_quantities=default_interpolate_log_quantities):
         """
         Create a new Photosphere interpolator.
         
@@ -49,8 +51,8 @@ class NewPhotosphereInterpolator:
         for column_name in self.interpolate_log_quantities:
             self._offsets[column_name] = np.min([np.min(p[column_name]) for p in self.photospheres]) - 1                
             for photosphere in self.photospheres:
-                photosphere[f"__{column_name}"] = photosphere[column_name]#np.log10(photosphere[column_name] - self._offsets[column_name])
-            
+                photosphere[f"__{column_name}"] = photosphere[column_name]
+                
         return None
 
     '''
@@ -237,78 +239,48 @@ class NewPhotosphereInterpolator:
         return np.where(~exclusion_mask)[0][mask]
 
 
-    def _loocv_column(self, column_name, index, alphas=None):
+    def _loocv_columns(self, column_names, index, alphas=None):
 
         xi = self.grid_points[index]
-        exclusion_mask = np.zeros(self.grid_points.shape[0], dtype=bool)
-        exclusion_mask[index] = True
-
-        # Work out what the optical depth points will be in our (to-be)-interpolated photosphere.
-        neighbour_indices = self.neighbour_indices(xi, exclusion_mask=exclusion_mask)
-
-        # Protect Qhull from columns with a single value.
-        cols = _protect_qhull(self.grid_points[neighbour_indices])  
+        exclusion_mask = self.exclusion_mask(xi)
     
-        # Create a common basis for the interpolation.
-        xi = xi[cols].reshape(1, len(cols))
-        grid_lower = np.min(self.grid_points, axis=0)
-        grid_upper = np.max(self.grid_points, axis=0)
+        common_basis, _, interpolated_quantities, __ = self.interpolate_columns(
+            xi, 
+            column_names=column_names,
+            exclusion_mask=exclusion_mask,
+            alphas=alphas
+        )
+        expected = np.array([self.photospheres[index][cn].data for cn in column_names])
+        actual = interpolated_quantities
+        return (expected, actual, percent(expected, actual))
 
-        xi = (xi - grid_lower) / (grid_upper - grid_lower)
-        points = (self.grid_points[neighbour_indices][:, cols] - grid_lower) / (grid_upper - grid_lower)
 
-        # Points to the power.
-        if alphas is not None:
-            _alphas = []
-            for alpha in alphas:
-                try:
-                    # Allow for callable
-                    a = alpha(xi)
-                except:
-                    _alphas.append(alpha)
-                else:
-                    _alphas.append(a)
+    def check_point(self, point):
+        # We do self.grid_points here to ensure that it is computed, and to check that if there
+        # are dimensions that we don't need to interpolate over, then not to worry about them.
+        # So although it looks like this line is not needed, it is for the first time interpolation
+        # is called.
+        self.grid_points
+    
+        missing_keys = set(self.grid_keywords).difference(point)
+        if missing_keys:
+            raise ValueError(f"Missing keyword arguments: {', '.join(missing_keys)}")
+    
+        xi = np.array([point[k] for k in self.grid_keywords])
 
-            xi = np.power(xi, _alphas)
-            points = np.power(points, _alphas)
-
-        values = np.array([self.photospheres[idx][self.basis_column_name] for idx in neighbour_indices])
-
-        kwds = {
-            "xi": xi,
-            "points": points,
-            "values": values,
-            "method": self.method,
-            "rescale": False
-        }
-        common_basis = interpolate.griddata(**kwds)
+        lower, upper = (np.min(self.grid_points, axis=0), np.max(self.grid_points, axis=0))
+        is_lower, is_upper = (xi < lower, xi > upper)
+        if np.any(is_lower) or np.any(is_upper):
+            is_bad = is_lower + is_upper
+            indices = np.where(is_bad)[0]
+            # Make a nice error message.
+            message = "Point is outside the boundaries:\n"
+            for index in indices:
+                message += f"- {self.grid_keywords[index]} = {xi[index]:.2f} is outside the range ({lower[index]:.2f}, {upper[index]:.2f})\n"
+            message = message.rstrip()
+            raise ValueError(message)
         
-        N, D = kwds["values"].shape
-
-        resampled_neighbour_quantities = np.empty((N, D))
-        for j, ni in enumerate(neighbour_indices):
-            v = self.photospheres[ni][column_name]
-            if column_name.startswith("__"):
-                v = np.log10(v - self._offsets[column_name[2:]])
-                assert np.all(np.isfinite(v))
-            tk = interpolate.splrep(
-                self.photospheres[ni][self.basis_column_name],
-                v,
-            )
-            resampled_neighbour_quantities[j] = interpolate.splev(common_basis.flatten(), tk)
-
-        kwds["values"] = resampled_neighbour_quantities
-        
-        actual = interpolate.griddata(**kwds)
-
-        if column_name.startswith("__"):
-            cn = column_name[2:]
-            actual = 10**actual + self._offsets[cn]
-        
-        expected = self.photospheres[index][column_name]
-
-        return (expected, actual)
-
+        return xi
 
 
     def __call__(self, exclusion_mask=None, **point):
@@ -340,131 +312,22 @@ class NewPhotosphereInterpolator:
             The point to interpolate at, where the keys correspond to the 
             `PhotosphereInterpolator.grid_keywords`.
         """
-        # We do self.grid_points here to ensure that it is computed, and to check that if there
-        # are dimensions that we don't need to interpolate over, then not to worry about them.
-        # So although it looks like this line is not needed, it is for the first time interpolation
-        # is called.
-        self.grid_points
-    
-        missing_keys = set(self.grid_keywords).difference(point)
-        if missing_keys:
-            raise ValueError(f"Missing keyword arguments: {', '.join(missing_keys)}")
-    
-        xi = np.array([point[k] for k in self.grid_keywords])
 
-        lower, upper = (np.min(self.grid_points, axis=0), np.max(self.grid_points, axis=0))
-        is_lower, is_upper = (xi < lower, xi > upper)
-        if np.any(is_lower) or np.any(is_upper):
-            is_bad = is_lower + is_upper
-            indices = np.where(is_bad)[0]
-            # Make a nice error message.
-            message = "Point is outside the boundaries:\n"
-            for index in indices:
-                message += f"- {self.grid_keywords[index]} = {xi[index]:.2f} is outside the range ({lower[index]:.2f}, {upper[index]:.2f})\n"
-            message = message.rstrip()
-            raise ValueError(message)
-
+        print(f"in __call__")
+        xi = self.check_point(point)
 
         # Check for an exact match.
         if exclusion_mask is None and np.any(grid_index := np.all(self.grid_points == xi, axis=1)):
             return self.photospheres[np.where(grid_index)[0][0]]
 
-        # Work out what the optical depth points will be in our (to-be)-interpolated photosphere.
-        neighbour_indices = self.neighbour_indices(xi, exclusion_mask=exclusion_mask)
-
-        # Protect Qhull from columns with a single value.
-        cols = _protect_qhull(self.grid_points[neighbour_indices])  
-            
-        # Create a common basis for the interpolation.
-        xi = xi[cols].reshape(1, len(cols))
-        grid_lower = np.min(self.grid_points, axis=0)
-        grid_upper = np.max(self.grid_points, axis=0)
-
-        xi = (xi - grid_lower) / (grid_upper - grid_lower)
-        points = (self.grid_points[neighbour_indices][:, cols] - grid_lower) / (grid_upper - grid_lower)
-        values = np.array([self.photospheres[idx][self.basis_column_name] for idx in neighbour_indices])
-
-        kwds = {
-            "xi": xi,
-            "points": points,
-            "values": values,
-            "method": self.method,
-            "rescale": False
-        }
-
-        if np.all(np.all(values == values[0], axis=1)):
-            common_basis = values[0]
-        else:
-            common_basis = interpolate.griddata(**kwds)
-            assert np.isfinite(common_basis).all()
-
-        # Interpolate everything and then check for things.
-        # # TODO: replace this with only what we need. than we need to right now.
-        
-        interpolate_column_names = list(self.photospheres[0].dtype.names)
-        #[1:] #[n for n in self.photospheres[0].dtype.names[1:] if n != self.opacity_column_name]
-        
-
-        # At the neighbouring N points, create splines of all the values
-        # with respect to their own opacity scales, then calcualte the 
-        # photospheric quantities on the common opacity scale.
-        C = len(interpolate_column_names)
-        N, D = kwds["values"].shape
-
-        resampled_neighbour_quantities = np.empty((N, C, D))
-        for i, column_name in enumerate(interpolate_column_names):
-            for j, ni in enumerate(neighbour_indices):
-                v = self.photospheres[ni][column_name]
-                if column_name.startswith("__"):
-                    v = np.log10(v - self._offsets[column_name[2:]])
-                    assert np.all(np.isfinite(v))
-                tk = interpolate.splrep(
-                    self.photospheres[ni][self.basis_column_name],
-                    v,
-                )
-                resampled_neighbour_quantities[j, i] = interpolate.splev(common_basis.flatten(), tk)
-    
-        interpolated_quantities = np.zeros((C, D))
-        for i, column_name in enumerate(interpolate_column_names):
-            if np.all(resampled_neighbour_quantities[:, i][0] == resampled_neighbour_quantities[:, i]):
-                interpolated_quantities[i] = resampled_neighbour_quantities[0, i]
-                continue
-            else:
-                
-                """if column_name == "__KappaRoss":
-                    alpha = np.array([-0.15, -0.12, 1 - (point["teff"]/3700)**3.5])
-                    xi_ = np.power(xi, 1 - alpha)
-                    points_ = np.power(points, 1 - alpha)
-                elif column_name == "Depth":
-                    alpha = np.array([2, 2, 4])
-                    xi = np.power(xi, alpha)
-                    points = np.power(points, alpha)
-                else:
-                """
-                xi_ = xi
-                points_ = points
-
-                z = interpolate.griddata(
-                    xi=xi_,
-                    points=points_,
-                    values=resampled_neighbour_quantities[:, i]
-                )
-
-                if column_name.startswith("__"):
-                    cn = column_name[2:]
-                    z = 10**z + self._offsets[cn]
-                interpolated_quantities[i] = z
-        
-        # Get meta from neighbours.
-        meta = self.photospheres[neighbour_indices[0]].meta.copy()
+        common_basis, column_names, interpolated_quantities, meta = self.interpolate_columns(xi, exclusion_mask=exclusion_mask)
 
         # create a photosphere from these data.
         photosphere = Photosphere(
             data=interpolated_quantities.T,
-            names=interpolate_column_names,
+            names=column_names,
             meta=meta
         )
-        #set_basis(photosphere, common_basis) # Update the basis.
         photosphere[self.basis_column_name] = common_basis
 
         # Fix the `k` column, if it exists.
@@ -482,35 +345,353 @@ class NewPhotosphereInterpolator:
 
         for key in photosphere.dtype.names:
             if key.startswith("__"):
-                photosphere[key[2:]] = photosphere[key]
+                photosphere[key[2:]] = photosphere[key].data.copy()
                 del photosphere[key]
 
         return photosphere
 
+    def _point_to_array(self, point):
+        N, D = self.grid_points.shape
+        if isinstance(point, dict):
+            return np.array([point[k] for k in self.grid_keywords])
+        else:
+            if len(point) != D:
+                raise ValueError(f"Expected {D} points for point {point}, not {len(point)} ({len(point)} != {D})")
+            return np.array(point)
+
+
+    def exclusion_mask(self, xi):
+
+        exclusion_mask = np.zeros(self.grid_points.shape[0], dtype=bool)
+        xi = self._point_to_array(xi)
+        exclusion_mask[np.all(xi == self.grid_points, axis=1)] = True
+        return exclusion_mask
+        
+
+    def estimate_interpolation_error(self, point, column_names=None, alphas=None):
+        """
+        Estimate the error in interpolation by leave-one-out cross-validation.
+        
+        Given a point somewhere within the bounds of the grid, this will find the nearest grid point 
+        in euclidian (L2) distance and estimate the error in interpolated quantities by leaving out
+        that grid point, and interpolating to it.
+
+        :param point:
+            A dictionary or array of the point where to estimate the interpolation error.
+        
+        :param column_names: [optional]
+            The column names to estimate the interpolation error for. If `None` is given then this
+            will default to all columns.
+
+        :param alphas: [optional]
+            The exponents to use for interpolation.
+        
+        :returns:
+            A dictionary where column names are keys, and values are the estimated percent error in
+            interpolation, at each depth in the photosphere.
+        """
+
+        xi = self._point_to_array(point)
+        # Get nearest point in grid. Use that for LOOCV.
+        grid_lower = np.min(self.grid_points, axis=0)
+        grid_upper = np.max(self.grid_points, axis=0)
+
+        grid_norm = (self.grid_points - grid_lower) / (grid_upper - grid_lower)
+        xi_norm = (xi - grid_lower) / (grid_upper - grid_lower)
+
+        distance = np.sum((grid_norm - xi_norm)**2, axis=1)
+        closest_index = np.argmin(distance)
+        
+        column_names = column_names or list(self.photospheres[0].dtype.names) 
+        expected, actual, percent = self._loocv_columns(column_names, closest_index, alphas=alphas)
+
+        return (dict(zip(column_names, percent)), xi, column_names, expected, actual)
+
+
+    def interpolate_columns(self, xi, column_names=None, exclusion_mask=None, alphas=None):
+
+        column_names = column_names or list(self.photospheres[0].dtype.names)
+
+        neighbour_indices = self.neighbour_indices(xi, exclusion_mask=exclusion_mask)
+
+        # Protect Qhull from columns with a single value.
+        cols = _protect_qhull(self.grid_points[neighbour_indices])  
+            
+        # Create a common basis for the interpolation.
+        xi = xi[cols].reshape(1, len(cols))
+        grid_lower = np.min(self.grid_points, axis=0)[cols]
+        grid_upper = np.max(self.grid_points, axis=0)[cols]
+
+        # TODO: Re-scale to the (min, max) of the grid, or to be (0, 1), or to be (-1, +1)?
+        xi = (xi - grid_lower) / (grid_upper - grid_lower)
+        points = (self.grid_points[neighbour_indices][:, cols] - grid_lower) / (grid_upper - grid_lower)
+
+        if alphas is not None:
+            alphas = np.array(alphas)
+            xi = np.power(xi, alphas[cols])
+            points = np.power(points, alphas[cols])
+
+        values = np.array([self.photospheres[idx][self.basis_column_name] for idx in neighbour_indices])
+
+        kwds = {
+            "xi": xi,
+            "points": points,
+            "values": values,
+            "method": self.method,
+            "rescale": False
+        }
+
+        if np.all(np.all(values == values[0], axis=1)):
+            common_basis = values[0]
+        else:
+            common_basis = interpolate.griddata(**kwds)
+            assert np.isfinite(common_basis).all()
+        
+        # At the neighbouring N points, create splines of all the values
+        # with respect to their own opacity scales, then calcualte the 
+        # photospheric quantities on the common opacity scale.
+        C = len(column_names)
+        N, D = kwds["values"].shape
+
+        resampled_neighbour_quantities = np.empty((N, C, D))
+        for i, column_name in enumerate(column_names):
+            for j, ni in enumerate(neighbour_indices):
+                v = self.photospheres[ni][column_name]
+                if column_name.startswith("__"):
+                    v = np.log10(v - self._offsets[column_name[2:]])
+                    assert np.all(np.isfinite(v))
+                tk = interpolate.splrep(
+                    self.photospheres[ni][self.basis_column_name],
+                    v,
+                )
+                resampled_neighbour_quantities[j, i] = interpolate.splev(common_basis.flatten(), tk)
+    
+        interpolated_quantities = np.zeros((C, D))
+        for i, column_name in enumerate(column_names):
+            if np.all(resampled_neighbour_quantities[:, i][0] == resampled_neighbour_quantities[:, i]):
+                z = resampled_neighbour_quantities[0, i]
+            else:
+                z = interpolate.griddata(
+                    xi=xi,
+                    points=points,
+                    values=resampled_neighbour_quantities[:, i],
+                    method=self.method,
+                    rescale=False
+                )
+
+            if column_name.startswith("__"):
+                cn = column_name[2:]
+                z = 10**z + self._offsets[cn]
+            interpolated_quantities[i] = z
+
+        # Get meta from neighbours.
+        meta = self.photospheres[neighbour_indices[0]].meta.copy()
+
+        return (common_basis, column_names, interpolated_quantities, meta)
+
+
+    def plot(self, point, label=None):
+    
+        import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+
+        photosphere = self(**point)
+
+        errors, errors_xi, errors_column_names, errors_expected, errors_actual = self.estimate_interpolation_error(point)
+
+        ni = self.neighbour_indices(self._point_to_array(point))
+        columns = [
+            (self.basis_column_name, "RHOX", False, False),
+            (self.basis_column_name, "lgTau5", False, False),
+            (self.basis_column_name, "__Pe", False, True),
+            (self.basis_column_name, "T", False, True),
+            (self.basis_column_name, "__XNE", False, True),
+            (self.basis_column_name, "__numdens_other", False, True),
+            (self.basis_column_name, "__Density", False, True),
+            (self.basis_column_name, "__Depth", False, False)
+        ]
+        K = int(len(columns) / 2)
+        ncols, nrows = (K + 2, 2)
+        width_ratio = 2
+        width_ratios = np.hstack([width_ratio, *np.ones(K), width_ratio])
+        fig, axes = plt.subplots(figsize=(15.25, 3.25), ncols=ncols, nrows=nrows, gridspec_kw=dict(width_ratios=width_ratios))
+        for ax in np.array(fig.axes):
+            if ax.get_subplotspec().is_last_col() or ax.get_subplotspec().is_first_col():
+                ax.remove()
+        axes = list(fig.axes) 
+        param_ax = fig.add_subplot(GridSpec(ncols=ncols, nrows=1, width_ratios=width_ratios)[0])
+        error_ax = fig.add_subplot(GridSpec(ncols=ncols, nrows=1, width_ratios=width_ratios)[-1])
+
+            
+
+        ylabels = [ylabel for _, ylabel, *__ in columns]
+        colors = dict(zip(ylabels, plt.rcParams['axes.prop_cycle'].by_key()['color']))
+
+        # use line styling for logg.
+        unique_logg = np.unique(self.grid_points[ni].T[1])
+        line_styles = dict(zip(unique_logg, ["-", ":", "--", "-.",]))
+
+        for ax, (xlabel, ylabel, semilogx, semilogy) in zip(axes, columns):
+
+            if semilogy and min(photosphere[ylabel.lstrip("_")]) < 1:
+                offset = -np.min(np.hstack([
+                    np.min(photosphere[ylabel.lstrip("_")]),
+                    *[np.min(self.photospheres[index][ylabel]) for index in ni]
+                ]))
+            else:
+                offset = 0
+
+            x = photosphere[xlabel.lstrip("_")]
+            y = offset + photosphere[ylabel.lstrip("_")]
+            y_error = y * np.abs(errors[ylabel])/100
+
+            ax.plot(x, y, c=colors[ylabel])
+            ax.fill_between(
+                x, 
+                y - y_error,
+                y + y_error,
+                facecolor=colors[ylabel],
+                alpha=0.3
+            )
+
+            ax.set_xlabel(xlabel)
+            if offset > 0:
+                ax.set_ylabel(f"{ylabel} + offset")
+            else:
+                ax.set_ylabel(ylabel)
+
+            for index in ni:
+                ax.plot(
+                    self.photospheres[index][xlabel],
+                    offset + self.photospheres[index][ylabel],
+                    c="k",
+                    #ls=line_styles[self.grid_points[index][1]],
+                    alpha=0.25
+                )
+                if semilogy and offset > 0:
+                    assert np.all((offset + self.photospheres[index][ylabel]) >= 0)
+            
+            if semilogx and semilogy:
+                ax.loglog()
+            elif semilogx:
+                ax.semilogx()
+            elif semilogy:
+                ax.semilogy()
+
+        plot_columns = set(np.array(columns)[:, [0, 1]].flatten()).difference([self.basis_column_name])
+        for column in plot_columns:
+            error_ax.plot(
+                photosphere[self.basis_column_name],
+                errors[column],
+                label=column.lstrip("_"),
+                c=colors[column]
+            )
+        error_ax.axhline(0, c="#666666", ls=":", zorder=-1, lw=0.5)
+        error_ax.set_xlabel(self.basis_column_name)
+        error_ax.set_ylabel(f"Estimated error [%]")
+
+        if self.grid_points.shape[1] > 2:    
+            unique_z = np.sort(np.unique(self.grid_points[ni].T[2]))
+            radius_x, radius_y = np.ptp(self.grid_points[ni], axis=0)[:2] / 15
+            thetas = np.linspace(0, 2 * np.pi, 5)
+
+            offset_x = radius_x * np.array([np.cos(thetas[np.where(unique_z == z)[0][0]]) for z in self.grid_points[ni].T[2]])
+            offset_y = radius_y * np.array([np.sin(thetas[np.where(unique_z == z)[0][0]]) for z in self.grid_points[ni].T[2]])
+
+            param_ax.scatter(
+                self.grid_points[ni].T[0],
+                self.grid_points[ni].T[1],
+                facecolor="k",
+                s=1,
+            )
+
+        else:
+            unique_z = []
+            offset_x, offset_y = (0, 0)
+
+        param_ax.scatter(
+            self.grid_points[ni].T[0] + offset_x,
+            self.grid_points[ni].T[1] + offset_y,
+            facecolor="k",
+            alpha=0.5,
+            s=5,
+        )
+
+        label = label or f",  ".join([f"{k}: {v:.2f}" for k, v in point.items()])
+        xi, yi = (point[self.grid_keywords[0]], point[self.grid_keywords[1]])
+        param_ax.scatter([xi], [yi], facecolor="k")
+        param_ax.annotate(
+            label,
+            xy=(xi, yi),
+            xycoords="data",
+            xytext=(xi + np.ptp(self.grid_points[ni].T[0])/5, yi),
+            textcoords="data",
+            arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
+        )
+
+        xi = np.min(self.grid_points[ni].T[0])
+        yi = np.max(self.grid_points[ni].T[1])
+
+        for j, z in enumerate(unique_z):
+            param_ax.text(
+                xi + radius_x * np.cos(thetas[j]) + 0.5 * radius_x,
+                yi + radius_y * np.sin(thetas[j]),# + radius_y,
+                f"{z:.2f}",
+                verticalalignment="center",
+                horizontalalignment="left",
+            )
+
+        param_ax.set_xlabel(self.grid_keywords[0])
+        param_ax.set_ylabel(self.grid_keywords[1])
+
+        fig.tight_layout()
+        return fig
+
+
+
+def percent(expected, actual):
+    p = (actual - expected) / expected
+    p[expected == 0] = 0
+    return 100 * p
 
 import itertools
 
-def calculate_alpha(interpolator, column_name, alpha_iter=np.linspace(0.1, 4, 5)):
+
+def calculate_alpha(interpolator, column_name, alpha_iter):
 
     N, D = interpolator.grid_points.shape
 
-    A = len(list(itertools.combinations_with_replacement(alpha_iter, D)))
+    all_alphas = []
+    for alphas in itertools.combinations_with_replacement(alpha_iter, D):
+        all_alphas.append(alphas)
+    all_alphas = np.array(all_alphas)
+
+    A, D = all_alphas.shape
     L = len(interpolator.photospheres[0])
-    abs_percent_diff = np.empty((A, N, L))
+    shape = (A, N, L)
+    all_percent = np.nan * np.ones(shape)
+    all_expected = np.nan * np.ones(shape)
+    all_actual = np.nan * np.ones(shape)
+
+
     for n in tqdm(range(N)):
-        for a, alphas in enumerate(itertools.combinations_with_replacement(alpha_iter, D)):
+        for a, alphas in enumerate(all_alphas):
             try:
-                expected, actual = interpolator._loocv_column(column_name, n, alphas=alphas)
-            except:
+                expected, actual, percent = interpolator._loocv_columns((column_name, ), n, alphas=alphas)
+            except ValueError:
                 continue
-            abs_percent_diff[a, n] = 100 * np.abs((actual - expected) / expected)
-
-    return (abs_percent_diff, list(itertools.combinations_with_replacement(alpha_iter, D)))
+            except:
+                raise
+            all_actual[a, n] = actual
+            all_expected[a, n] = expected
+            all_percent[a, n] = percent
+            
+    return (all_expected, all_actual, all_percent, all_alphas)
     
 
     
 
-def loo_cv(interpolator):
+def loo_cv(interpolator, raise_exceptions=False):
     """
     Perform leave-one-out cross-validation on the grid.
     """
@@ -523,8 +704,8 @@ def loo_cv(interpolator):
     C = len(column_names)
     Q = len(interpolator.photospheres[0])
 
-    actual = np.empty((N, C, Q))
-    expected = np.empty((N, C, Q))
+    actual = np.nan * np.ones((N, C, Q))
+    expected = np.nan * np.ones((N, C, Q))
 
     failed_indices = []
     
@@ -533,45 +714,39 @@ def loo_cv(interpolator):
         for c, column_name in enumerate(column_names):
             expected[n, c] = interpolator.photospheres[n][column_name]
         
-        """
-        for c, column_name in enumerate(ficticious_column_names, start=c):
-            #callable = ficticious_columns[column_name]
-            #expected[n, c] = callable(interpolator.photospheres[n])
-            expected[n, c] = interpolator.photospheres[n][column_name]
-        """
-        
-        exclusion_mask = np.zeros(N, dtype=bool)
-        exclusion_mask[n] = True # Exclude this point.
+        if isinstance(interpolator, NewPhotosphereInterpolator):
+            try:
+                _, actual[n], __ = interpolator._loocv_columns(column_names, n)
+            except AssertionError:
+                raise 
+            except:
+                #logger.exception(f"An exception occured interpolating index {n} {grid_point}")
+                failed_indices.append(n)
+                actual[n][:] = np.nan
+                if raise_exceptions:
+                    raise
 
-        # Get the interpolated photosphere.
-        point = dict(zip(interpolator.grid_keywords, grid_point))
-        try:
-            photosphere = interpolator(
-                exclusion_mask=exclusion_mask, 
-                **point
-            )
-        except AssertionError:
-            raise 
-        except:
-            #logger.exception(f"An exception occured interpolating index {n} {grid_point}")
-            failed_indices.append(n)
-            actual[n][:] = np.nan
         else:
-            for c, column_name in enumerate(column_names):
-                try:
+            exclusion_mask = np.zeros(N, dtype=bool)
+            exclusion_mask[n] = True
+
+            point = dict(zip(interpolator.grid_keywords, grid_point))
+            try:
+                photosphere = interpolator(exclusion_mask=exclusion_mask, **point)
+            except AssertionError:
+                raise
+            except:
+                failed_indices.append(n)
+                actual[n][:] = np.nan
+                if raise_exceptions:
+                    raise
+            else:
+                for c, column_name in enumerate(column_names):
                     actual[n, c] = photosphere[column_name].data
-                except:
-                    raise 
-                    actual[n, c] = np.nan
-            """
-            for c, column_name in enumerate(ficticious_column_names, start=c):
-                callable = ficticious_columns[column_name]
-                actual[n, c] = callable(photosphere)
-            """
 
     outcome = np.ones(N, dtype=bool)
     outcome[failed_indices] = False
-    return (column_names, expected, actual, outcome)
+    return (column_names, expected, actual, percent(expected, actual), outcome)
 
 
 
@@ -713,13 +888,6 @@ class PhotosphereInterpolator(object):
 
 
 
-    def nearest_neighbour_indices(self, point, n):
-        """
-        Return the indices of the n nearest neighbours to the point.
-        """
-
-        distances = np.sum(((point - self.grid_points) / np.ptp(self.grid_points, axis=0))**2, axis=1)
-        return distances.argsort()[:n]
 
 
     def __call__(self, full_output=False, exclusion_mask=None, **point):
@@ -755,8 +923,8 @@ class PhotosphereInterpolator(object):
             grid_index = np.where(grid_index)[0][0]
             return self.photospheres[grid_index]
 
-        # Work out what the optical depth points will be in our (to-be)-interpolated photosphere.
-        neighbour_indices = self.nearest_neighbour_indices(xi, self.neighbours)
+        distances = np.sum(((xi - grid_points) / np.ptp(grid_points, axis=0))**2, axis=1)
+        neighbour_indices = distances.argsort()[:self.neighbours]
 
         # Protect Qhull from columns with a single value.
         cols = _protect_qhull(grid_points[neighbour_indices])  
