@@ -87,18 +87,25 @@ def read_kurucz(fp_or_path, structure_start=13, __include_extra_columns=True):
     filename, contents, content_stream = safe_open(fp_or_path)
 
     meta = parse_meta(contents)
-
-    if meta["radius"] > 1:
-        # Spherical models have six columns.
-        usecols = (0, 1, 2, 3, 4, 5)
-        column_locations = [
-            (structure_start, ("tau", "T", "XNE", "numdens_other", "Density", "Depth"))
-        ]      
-    else:
-        # Plane-parallel models have four columns
+    model_type = int(meta["model_type"])
+    if model_type in (0, 1):
+        # Plane-parallel.
         usecols = (0, 1, 2, 3, 4)
+    elif model_type in (3, 4):
+        # Spherical geometry.
+        usecols = (0, 1, 2, 3, 4, 5)
+    else:
+        raise ValueError(f"Unknown model_type: {model_type}")
+    
+    if model_type in (0, 3):
+        # depth scale - column mass in g/cm^2
         column_locations = [
             (structure_start, ("RHOX", "T", "XNE", "numdens_other", "Density", "Depth"))
+        ]
+    elif model_type in (1, 4):
+        # depth scale - tau at std wavelength
+        column_locations = [
+            (structure_start, ("tau", "T", "XNE", "numdens_other", "Density", "Depth"))
         ]      
     
     data = {}
@@ -157,15 +164,14 @@ def write_kurucz(photosphere, path, **kwargs):
         The local path.
     """
     meta = photosphere.meta
-
+    # Always use either model_type of 0 or 3, which outputs column mass as first column
+    first_column_name = "RHOX"
     if photosphere.is_spherical_geometry:
         model_type = 3 
         geometry_desc = f"SPHERICAL,  RADIUS= {meta['radius']:.3e} cm"
-        first_column_name = "tau"
     else:
         model_type = 0
         geometry_desc = "PLANE-PARALLEL."
-        first_column_name = "RHOX"
 
     opacity_keys = (
         "absorption_by_H",

@@ -63,17 +63,31 @@ def synthesize(
 
     # I wish I knew some Julia... eeek!
     if isinstance(transitions, (list, tuple)) and len(transitions) == 2:
-        template_path = "template_two_linelists.jl"
+        
+        # Special case for TS 15000 - 15500
+        if any(os.path.basename(path).startswith("turbospec.") for path in transitions):
+            template_path = "template_turbospectrum.jl"
+            assert transitions[-1].endswith(".molec"), "Put the molecule transition file last"
 
-        assert transitions[-1].endswith(".molec"), "Put the molecular line list last"
-        for i, each in enumerate(transitions):
-            basename = f"transitions_{i:.0f}"
-            copy_or_write(
-                each,
-                _path(basename),
-                format=kwargs.get("transitions_format", "vald.stellar")
-            )
-            kwds[f"linelist_path_{i}"] = basename
+            for i, each in enumerate(transitions):
+                basename = f"transitions_{i:.0f}"
+                copy_or_write(
+                    each,
+                    _path(basename),
+                    format=kwargs.get("transitions_format", "vald.stellar")                
+                )
+                kwds[f"linelist_path_{i}"] = basename
+        else:
+            template_path = "template_two_linelists.jl"
+
+            for i, each in enumerate(transitions):
+                basename = f"transitions_{i:.0f}"
+                copy_or_write(
+                    each,
+                    _path(basename),
+                    format=kwargs.get("transitions_format", "vald.stellar")
+                )
+                kwds[f"linelist_path_{i}"] = basename
 
     else:
         template_path = "template.jl"

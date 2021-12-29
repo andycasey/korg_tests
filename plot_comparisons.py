@@ -12,7 +12,7 @@ from scipy.ndimage import gaussian_filter
 from grok.transitions.utils import (air_to_vacuum, vacuum_to_air)
 
 
-korg_version = (0, 5, 0) # TODO: Check this from the meta of each file that it matches
+korg_version = (0, 6, 0) # TODO: Check this from the meta of each file that it matches
 korg_major_version, korg_minor_version, korg_micro_version = korg_version
 
 # Specify some paths. The output_prefix should match that from `make_comparisons.py`
