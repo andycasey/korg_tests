@@ -2,7 +2,7 @@
 import numpy as np
 from textwrap import dedent
 from astropy.io import registry
-
+import re
 from grok.photospheres import Photosphere
 
 # Page 16 of WRITEMOOG.ps would make you think that we should include all of
@@ -41,9 +41,9 @@ def write_photosphere_for_moog(photosphere, path, include_molecules=default_mole
 
     format = "KURUCZ"        
     if photosphere.meta["read_format"] == "atlas9":
-        line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{line[P]:10.3e}{line[XNE]:10.3e}{line[ABROSS]:10.3e}"
+        line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{lie[Pg]:10.3e}{line[XNE]:10.3e}{line[ABROSS]:10.3e}"
     else:
-        line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{line[P]:10.3e}{line[XNE]:10.3e}{line[KappaRoss]:10.3e}"
+        line_format = " {line[RHOX]:.8e} {line[T]:10.3e}{line[Pg]:10.3e}{line[XNE]:10.3e}{line[KappaRoss]:10.3e}"
 
         
     '''
@@ -138,6 +138,32 @@ def parse_single_spectrum(lines):
         "raw": lines[:i + 2]
     }
     return (dispersion, intensity, meta)
+
+
+def parse_standard_synth_output(standard_out_path):
+    """
+    Parse the standard output from a MOOG synth operation.
+    
+    :param standard_out_path:
+        The path of the standard output file produced by MOOG.
+    """
+
+    with open(standard_out_path, "r") as fp:
+        stdout = fp.read()
+
+    # Parse the continuum
+    pattern = "AT WAVELENGTH/FREQUENCY = \s+(?P<wavelength>[0-9\.]+)\s+CONTINUUM FLUX/INTENSITY = (?P<continuum>[0-9]\.[0-9]{5}D[\+-][0-9]{1,2})"
+    continuum_spectrum = []
+    for each in re.finditer(pattern, stdout):
+        continuum_spectrum.append([
+            float(each.groupdict()["wavelength"]), float(each.groupdict()["continuum"].replace("D", "E"))
+        ])
+    continuum_spectrum = np.array(continuum_spectrum)
+    return dict(
+        continuum_lambda_air=continuum_spectrum.T[0],
+        continuum_flux=continuum_spectrum.T[1]
+    )
+
 
 
 def parse_summary_synth_output(summary_out_path):

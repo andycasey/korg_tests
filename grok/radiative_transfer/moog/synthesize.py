@@ -8,7 +8,7 @@ from tempfile import mkdtemp
 from time import time
 
 from grok.transitions import Transitions
-from grok.radiative_transfer.moog.io import parse_summary_synth_output
+from grok.radiative_transfer.moog.io import parse_summary_synth_output, parse_standard_synth_output
 from grok.radiative_transfer.utils import get_default_lambdas
 from grok.utils import copy_or_write
 
@@ -20,8 +20,8 @@ def moog_synthesize(
         abundances=None,
         isotopes=None,
         terminal="x11",
-        atmosphere_flag=0,
-        molecules_flag=1,
+        atmosphere_flag=2,
+        molecules_flag=2,
         trudamp_flag=0,
         lines_flag=0,
         flux_int_flag=0,
@@ -260,6 +260,8 @@ def moog_synthesize(
         
         meta["dir"] = dir
         meta["wallclock_time"] = t_moogsilent
-        
+        meta.update(
+            parse_standard_synth_output(_path(kwds["standard_out"]))
+        )
         return (spectrum, meta)
     
