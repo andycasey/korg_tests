@@ -38,10 +38,10 @@ output_prefix = lambda star_description, lambda_min, lambda_max, method_descript
 
 for method_description, options in config["methods"].items():
     
-    if method_description != "moog":
-        continue
-
     method, *desc = method_description.split("_")
+    if len(desc) > 0:
+        continue
+    
     for star_description, star in config["stars"].items():
 
         basename = output_prefix(star_description, lambda_min, lambda_max, method_description)
@@ -61,10 +61,6 @@ for method_description, options in config["methods"].items():
                 )
             )
 
-        #photosphere_interpolator = PhotosphereInterpolator(
-        #    photospheres, 
-        #    interpolate_log_quantities=("P", "XNE", "Pg", "Pe", ),
-        #)
         photosphere_interpolator = NewPhotosphereInterpolator(photospheres)
 
         photosphere = photosphere_interpolator(**star["model_kwargs"]["photosphere_point"])
