@@ -17,6 +17,7 @@ from astropy.convolution import (Gaussian1DKernel, convolve)
 from glob import glob
 from tqdm import tqdm
 from grok import (Transitions, Photosphere, PhotosphereInterpolator)
+from grok.photospheres.interpolator import NewPhotosphereInterpolator
 from grok.radiative_transfer.turbospectrum.transitions import should_keep
 from grok.radiative_transfer import synthesize
 from grok.utils import read_benchmark_star
@@ -35,17 +36,23 @@ window = 2
 for method_description, options in config["methods"].items():
     
     method, *desc = method_description.split("_")
+
+
     for star_description, star in config["stars"].items():
 
         photosphere = None
 
         for transition_kwds in config["transitions"]:
-            
+
             # Copy options instance
             options_instance = {}
             options_instance.update(options)
 
             lambda_min, lambda_max, lambda_step = lambdas = transition_kwds["lambdas"]
+
+            if method != "korg":
+                print(f"SKIPPING BECAUSE TESTING KORG")
+                continue
 
             print(f"Checking {method_description} for {star_description} and {lambda_min} to {lambda_max}")
 
@@ -68,11 +75,11 @@ for method_description, options in config["methods"].items():
                         )
                     )
 
-                photosphere_interpolator = PhotosphereInterpolator(
-                    photospheres, 
-                    interpolate_log_quantities=("P", "XNE", "Pg", "Pe", ),
-                )
-
+                #photosphere_interpolator = PhotosphereInterpolator(
+                #    photospheres, 
+                #    interpolate_log_quantities=("P", "XNE", "Pg", "Pe", ),
+                #)
+                photosphere_interpolator = NewPhotosphereInterpolator(photospheres)
                 photosphere = photosphere_interpolator(**star["model_kwargs"]["photosphere_point"])
 
             else:
@@ -158,7 +165,7 @@ for method_description, options in config["methods"].items():
                 
                 transitions_desc = f"using {len(transitions)} transitions and {N_strong_transitions} strong transitions"
 
-            elif method == "korg" and lambda_min != 15_000:
+            elif method == "korg":# and lambda_min != 15_000:
                 # If we're running Korg and it's not the (15,000 - 15,500) region then the
                 # line list is already in VALD format, so we will supply this directly to Korg.
                 # If it's not that region, we need to load things.

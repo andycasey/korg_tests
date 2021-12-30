@@ -120,7 +120,8 @@ for star_description, star in config["stars"].items():
             if len(wl) == 0:
                 print(f"NO SPECTRUM IN {output_path}")
                 continue
-
+            
+            print(method, wl[0], wl[-1])
 
             total_times[method_description].append(meta["wallclock_time"])
 
