@@ -50,10 +50,6 @@ for method_description, options in config["methods"].items():
 
             lambda_min, lambda_max, lambda_step = lambdas = transition_kwds["lambdas"]
 
-            if method != "korg":
-                print(f"SKIPPING BECAUSE TESTING KORG")
-                continue
-
             print(f"Checking {method_description} for {star_description} and {lambda_min} to {lambda_max}")
 
             basename = output_prefix(star_description, lambda_min, lambda_max, method_description)
