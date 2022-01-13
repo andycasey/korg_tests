@@ -1,6 +1,7 @@
 'LAMBDA_MIN:'  '{lambda_min:.3f}'
 'LAMBDA_MAX:'  '{lambda_max:.3f}'
 'LAMBDA_STEP:' '{lambda_delta:.3f}'
+'PURE-LTE:' '.true.'
 'MODELINPUT:' '{modelinput_basename}'
 'MARCS-FILE:' '{marcs_file_flag}'
 'MODELOPAC:' '{modelopac_basename}'
