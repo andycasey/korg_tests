@@ -4,7 +4,7 @@
 'INTENSITY/FLUX:' 'Flux'
 'COS(THETA):' '1.000'
 'ABFIND:' '.false.'
-'PURE-LTE': '.true.'
+'PURE-LTE:' '.true.'
 'MODELINPUT:' '{modelinput_basename}'
 'MARCS-FILE:' '{marcs_file_flag}'
 'MODELOPAC:' '{modelopac_basename}'
