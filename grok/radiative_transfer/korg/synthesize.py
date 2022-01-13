@@ -38,7 +38,7 @@ def synthesize(
     copy_or_write(
         photosphere,
         _path(photosphere_path_basename),
-        format=kwargs.get("photosphere_format", "kurucz")
+        format=kwargs.get("photosphere_format", "marcs")
     )    
 
     lambda_vacuum_min = np.round(air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value, 2) - 0.01
@@ -126,6 +126,7 @@ def synthesize(
     if process.returncode != 0:
         raise RuntimeError(process.stderr)    
     
+
     # Write the stdout and stderr.
     with open(_path("stdout"), "w") as fp:
         fp.write(process.stdout)
