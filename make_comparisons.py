@@ -209,7 +209,6 @@ for method_description, options in config["methods"].items():
 
             except:
                 log.exception("Exception occurred")
-                raise
                 continue
 
             print(f"  That took {meta['wallclock_time']} seconds")

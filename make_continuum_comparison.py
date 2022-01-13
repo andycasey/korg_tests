@@ -27,7 +27,7 @@ from astropy import units as u
 
 OVERWRITE = False
 
-suffix = ""
+suffix = "-v0.7.0"
 # Combinations of `star`, `transitions`, and `methods`.
 with open("comparisons.yml", "r") as fp:
     config = yaml.load(fp, Loader=yaml.FullLoader)
