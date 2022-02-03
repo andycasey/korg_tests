@@ -9,6 +9,7 @@ atmosphere {atmosphere_flag:.0f}
 molecules {molecules_flag:.0f}
 lines {lines_flag:.0f}
 flux/int {flux_int_flag:.0f}
+damping {damping_flag:.0f}
 strong {strong_flag:.0f}
 abundances {abundances_formatted}
 isotopes {isotopes_formatted}

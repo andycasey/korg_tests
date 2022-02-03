@@ -139,15 +139,12 @@ def synthesize(
     t_first = float(next(search).groupdict()["seconds"])
     t_second = float(next(search).groupdict()["seconds"])
     
-    flux = np.loadtxt(_path("spectrum.out"))
-    #wavelength = np.arange(lambda_air_min, lambda_air_max + lambda_delta, lambda_delta)[:len(flux)]
-    wavelength_vacuum = np.arange(lambda_vacuum_min, lambda_vacuum_max + lambda_delta, lambda_delta)[:len(flux)]
-    wavelength_air = vacuum_to_air(wavelength_vacuum * u.Angstrom).to("Angstrom").value
+    wavelength, flux = np.loadtxt(_path("spectrum.out")).T
 
-    continuum = np.loadtxt(_path("continuum.out"))
+    continuum_wavelength, continuum = np.loadtxt(_path("continuum.out")).T
 
     result = OrderedDict([
-        ("wavelength", wavelength_air),
+        ("wavelength", wavelength),
         ("wavelength_unit", "Angstrom"),
         ("flux", flux),
         ("flux_unit", "erg / (Angstrom cm2 s"),

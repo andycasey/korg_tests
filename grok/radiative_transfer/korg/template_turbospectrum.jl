@@ -46,7 +46,7 @@ function parse_ts_linelist(fn; mols=false)
             isotopic_correction = log10(Korg.isotopic_abundances[(el1, m1)] * Korg.isotopic_abundances[(el2, m2)])
         
             transitions = Korg.parse_fwf(lines[lb:ub], [
-                       (2:10, Float64, :wl, x->x*1e-8),
+                       (2:10, Float64, :wl, x->Korg.air_to_vacuum(x)*1e-8),
                        (12:17, Float64, :Elo),
                        (19:25, Float64, :log_gf),
                        (41:48, Float64, :gamma_rad)
@@ -74,7 +74,7 @@ function parse_ts_linelist(fn; mols=false)
             end
 
             transitions = Korg.parse_fwf(lines[lb:ub], [
-                       (2:10, Float64, :wl, x->x*1e-8),
+                       (2:10, Float64, :wl, x->Korg.air_to_vacuum(x)*1e-8),
                        (12:17, Float64, :Elo),
                        (19:25, Float64, :log_gf),
                        (31:35, Float64, :gamma_vdW),
@@ -103,7 +103,7 @@ function synthesize(atmosphere_path, metallicity)
     println("Running with ", atmosphere_path)
     atm = Korg.read_model_atmosphere(atmosphere_path)
     println("Synthesizing..")
-    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}:0.01:{lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
+    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
     println("Done")
     return spectrum
 end
@@ -118,17 +118,17 @@ println("Going twice..")
 # Save to disk.
 println("Going three times...")
 open("spectrum.out", "w") do fp
-    for flux in spectrum.flux
-        println(fp, flux)
+    for (wl, flux) in zip(spectrum.wavelengths, spectrum.flux)
+        println(fp, wl, " ", flux)
     end
 end
 println("Sold!")
 
 # Now do continuum.
 atm = Korg.read_model_atmosphere("{atmosphere_path}")
-continuum = Korg.synthesize(atm, [], {lambda_vacuum_min:.2f}:0.01:{lambda_vacuum_max:.2f}; metallicity={metallicity:.2f}, hydrogen_lines=false, vmic={microturbulence:.2f})
+continuum = Korg.synthesize(atm, [], {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity={metallicity:.2f}, hydrogen_lines=false, vmic={microturbulence:.2f})
 open("continuum.out", "w") do fp
-    for flux in continuum.flux
-        println(fp, flux)
+    for (wl, flux) in zip(continuum.wavelengths, continuum.flux)
+        println(fp, wl, " ", flux)
     end
 end

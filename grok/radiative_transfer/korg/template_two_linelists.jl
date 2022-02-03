@@ -11,7 +11,7 @@ function synthesize(atmosphere_path, linelist_path_0, linelist_path_1, metallici
     linelist_2 = Korg.read_linelist(linelist_path_1, format="{korg_read_transitions_format}")
     linelist = append!(linelist_1, linelist_2)
     println("Synthesizing..")
-    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}:0.01:{lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
+    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
     println("Done")
     return spectrum
 end
@@ -21,7 +21,7 @@ function synthesize_one(atmosphere_path, linelist_path, metallicity)
     atm = Korg.read_model_atmosphere(atmosphere_path)
     linelist = Korg.read_linelist(linelist_path, format="{korg_read_transitions_format}")
     println("Synthesizing..")
-    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}:0.01:{lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
+    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
     println("Done")
     return spectrum
 end
@@ -35,17 +35,17 @@ println("Going twice..")
 # Save to disk.
 println("Going three times...")
 open("spectrum.out", "w") do fp
-    for flux in spectrum.flux
-        println(fp, flux)
+    for (wl, flux) in zip(spectrum.wavelengths, spectrum.flux)
+        println(fp, wl, " ", flux)
     end
 end
 println("Sold!")
 
 # Now do continuum.
 atm = Korg.read_model_atmosphere("{atmosphere_path}")
-continuum = Korg.synthesize(atm, [], {lambda_vacuum_min:.2f}:0.01:{lambda_vacuum_max:.2f}; metallicity={metallicity:.2f}, hydrogen_lines=false, vmic={microturbulence:.2f})
+continuum = Korg.synthesize(atm, [], {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity={metallicity:.2f}, hydrogen_lines=false, vmic={microturbulence:.2f})
 open("continuum.out", "w") do fp
-    for flux in continuum.flux
-        println(fp, flux)
+    for (wl, flux) in zip(continuum.wavelengths, continuum.flux)
+        println(fp, wl, " ", flux)
     end
 end

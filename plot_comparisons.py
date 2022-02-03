@@ -34,7 +34,7 @@ plot_kwargs = {
     "korg_turbospectrum_diff": dict(c="tab:red", alpha=0.5, ms=0)
 }
 ylim = (0, 1.1)
-diff_ylim = (-0.10, 0.10)
+diff_ylim = (-0.01, 0.01)
 log_abs_diff = False
 
 def convolve_flux(wavelengths, fluxes, R):
@@ -130,6 +130,9 @@ for star_description, star in config["stars"].items():
                 continue
 
             #convolved_flux = convolve_flux(wl, flux, star.get("R", 25_000))
+            if method == "korg":
+                from astropy import units as u
+                wl = vacuum_to_air(wl * u.Angstrom).value
             synthesized_spectra[method] = [wl, flux]
 
 

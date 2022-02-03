@@ -36,7 +36,9 @@ window = 2
 for method_description, options in config["methods"].items():
     
     method, *desc = method_description.split("_")
-
+    if not method.startswith("moog"): 
+        print("SKIPPING")
+        continue
 
     for star_description, star in config["stars"].items():
 
@@ -209,7 +211,7 @@ for method_description, options in config["methods"].items():
 
             except:
                 log.exception("Exception occurred")
-                continue
+                raise
 
             print(f"  That took {meta['wallclock_time']} seconds")
 
