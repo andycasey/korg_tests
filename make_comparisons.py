@@ -36,9 +36,9 @@ window = 2
 for method_description, options in config["methods"].items():
     
     method, *desc = method_description.split("_")
-    if not method.startswith("moog"): 
-        print("SKIPPING")
-        continue
+    #if not method.startswith("korg"): 
+    #    print("SKIPPING")
+    #    continue
 
     for star_description, star in config["stars"].items():
 
@@ -114,9 +114,10 @@ for method_description, options in config["methods"].items():
                     _transitions.extend(Transitions.read(path))
 
                 print(f"There were {len(_transitions)} before removing strange lines and things outside the range")
-                _transitions = [t for t in _transitions \
-                        if should_keep(t) and (lambda_max + window) >= t.lambda_air.value >= (lambda_min - window)
-                ]
+                #_transitions = [t for t in _transitions \
+                #        if should_keep(t) and (lambda_max + window) >= t.lambda_air.value >= (lambda_min - window)
+                #]
+                _transitions = [t for t in _transitions if should_keep(t, consider_reasons=(0, 1, 2,)) and (lambda_max + window) >= t.lambda_air.value >= (lambda_min - window)]
 
                 if len(_transitions) > max_transitions:
                     print(f"There were {len(_transitions)} before restricting on strength")
@@ -213,7 +214,7 @@ for method_description, options in config["methods"].items():
                 log.exception("Exception occurred")
                 raise
 
-            print(f"  That took {meta['wallclock_time']} seconds")
+            print(f"  Timing: {meta.get('timing', None)} seconds")
 
             with open(output_path, "wb") as fp:
                 pickle.dump((spectrum, meta), fp)

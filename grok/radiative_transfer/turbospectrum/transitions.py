@@ -45,7 +45,7 @@ _ionization_potential_p2 = [
 ]
 
 
-def should_keep(transition, return_reason=False):
+def should_keep(transition, return_reason=False, consider_reasons=(0, 1, 2, 3, 4)):
     """
     Returns a boolean flag whether a transition should be excluded (False) or included (True)
     from Turbospectrum.
@@ -54,17 +54,17 @@ def should_keep(transition, return_reason=False):
     """
     reason = None
     
-    if transition.species.charge not in (0, 1):
+    if transition.species.charge not in (0, 1) and 0 in consider_reasons:
         reason = "Not a neutral or singly ionised species."
-    elif transition.E_lower >= (15 * u.eV):
+    elif transition.E_lower >= (15 * u.eV) and 1 in consider_reasons:
         reason = "Lower excitation potential exceeds 15 eV."
-    elif (len(transition.species.atoms) == 1 and transition.species.atoms[0] in ("H", "He")):
+    elif (len(transition.species.atoms) == 1 and transition.species.atoms[0] in ("H", "He")) and 2 in consider_reasons:
         reason = "Skipping H and He atomic lines."
     elif not transition.is_molecule and transition.species.charge == 1 \
-        and transition.E_upper is not None and transition.E_upper.to("eV").value > _ionization_potential_p1[transition.species.Zs[-1] - 1]:
+        and transition.E_upper is not None and transition.E_upper.to("eV").value > _ionization_potential_p1[transition.species.Zs[-1] - 1] and 3 in consider_reasons:
         reason = f"Neutral atomic species is a bound-free transition ({transition.E_upper.value} > {_ionization_potential_p1[transition.species.Zs[-1] - 1]})."
     elif not transition.is_molecule and transition.species.charge == 2 \
-        and transition.E_upper is not None and transition.E_upper.to("eV").value > _ionization_potential_p2[transition.species.Zs[-1] - 1]:
+        and transition.E_upper is not None and transition.E_upper.to("eV").value > _ionization_potential_p2[transition.species.Zs[-1] - 1] and 4 in consider_reasons:
         reason = f"Singly ionized atomic species is a bound free transition ({transition.E_upper.value} > {_ionization_potential_p2[transition.species.Zs[-1] - 1]})."
     
     return reason if return_reason else reason is None

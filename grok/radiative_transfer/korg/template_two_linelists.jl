@@ -4,36 +4,35 @@ Pkg.status("Korg")
 
 using Korg
 
-function synthesize(atmosphere_path, linelist_path_0, linelist_path_1, metallicity)
-    println("Running with ", atmosphere_path, " and ", linelist_path_0, " and ", linelist_path_1)
-    atm = Korg.read_model_atmosphere(atmosphere_path)
+function read_line_list(linelist_path_0, linelist_path_1)
     linelist_1 = Korg.read_linelist(linelist_path_0, format="{korg_read_transitions_format}")
     linelist_2 = Korg.read_linelist(linelist_path_1, format="{korg_read_transitions_format}")
     linelist = append!(linelist_1, linelist_2)
-    println("Synthesizing..")
+    return linelist
+end
+
+function synthesize(atmosphere_path, linelist_path_0, linelist_path_1, metallicity)
+    println("Running with ", atmosphere_path, " and ", linelist_path_0, " and ", linelist_path_1)
+    println("Timing atmosphere read")
+    @time atm = Korg.read_model_atmosphere(atmosphere_path)
+    println("Timing line list read")
+    @time linelist = read_line_list(linelist_path_0, linelist_path_1)
+    println("Timing synthesis")
     @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
     println("Done")
     return spectrum
 end
 
-function synthesize_one(atmosphere_path, linelist_path, metallicity)
-    println("Running with ", atmosphere_path, " and ", linelist_path)
-    atm = Korg.read_model_atmosphere(atmosphere_path)
-    linelist = Korg.read_linelist(linelist_path, format="{korg_read_transitions_format}")
-    println("Synthesizing..")
-    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
-    println("Done")
-    return spectrum
-end
 
-println("Going once.")
+println("Time 1 start")
 @time spectrum = synthesize("{atmosphere_path}", "{linelist_path_0}", "{linelist_path_1}", {fake_metallicity:.2f})
+println("Time 1 end")
 
-println("Going twice..")
+println("Time 2 start")
 @time spectrum = synthesize("{atmosphere_path}", "{linelist_path_0}", "{linelist_path_1}", {metallicity:.2f})
+println("Time 2 end")
 
 # Save to disk.
-println("Going three times...")
 open("spectrum.out", "w") do fp
     for (wl, flux) in zip(spectrum.wavelengths, spectrum.flux)
         println(fp, wl, " ", flux)

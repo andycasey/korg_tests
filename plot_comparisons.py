@@ -12,14 +12,14 @@ from scipy.ndimage import gaussian_filter
 from grok.transitions.utils import (air_to_vacuum, vacuum_to_air)
 
 
-korg_version = (0, 7, 0) # TODO: Check this from the meta of each file that it matches
+korg_version = (0, 7, 1) # TODO: Check this from the meta of each file that it matches
 korg_major_version, korg_minor_version, korg_micro_version = korg_version
 
 # Specify some paths. The output_prefix should match that from `make_comparisons.py`
 output_prefix = lambda star_description, lambda_min, lambda_max, method_description: f"{star_description}_{lambda_min:.0f}_{lambda_max:.0f}_{method_description}"
 
 figure_path = lambda star_description, **_: f"compare-{star_description}-v{korg_major_version}.{korg_minor_version}.{korg_micro_version}.png"
-wallclock_figure_path = f"wallclock-v{korg_major_version}.{korg_minor_version}.{korg_micro_version}.png"
+wallclock_figure_path = f"timing-synthesis-v{korg_major_version}.{korg_minor_version}.{korg_micro_version}.png"
 
 # Load in the same file that we used in `make_comparisons.py`
 with open("comparisons.yml", "r") as fp:
@@ -72,18 +72,25 @@ for star_description, star in config["stars"].items():
         if not diff_ax.get_subplotspec().is_first_col():
             diff_ax.set_yticks([])
 
+
     for t, (ax, diff_ax, transition_kwds) in enumerate(zip(axes, diff_axes, config["transitions"])):
+
 
         lambda_min, lambda_max, _ = transition_kwds["lambdas"]
 
         si, ei = obs_wl.searchsorted([lambda_min, lambda_max])
 
+        
         ax.plot(
             obs_wl[si:ei],
             obs_flux[si:ei],
             label=star_description,
             **plot_kwargs["observation"],
         )
+
+
+
+
 
         synthesized_spectra = {}
         for method_description, _ in config["methods"].items(): 
@@ -123,7 +130,16 @@ for star_description, star in config["stars"].items():
             
             print(method, wl[0], wl[-1])
 
-            total_times[method_description].append(meta["wallclock_time"])
+            if method == "korg":
+                total_times[method_description].append(meta["timing"]["t_synthesis"])
+            else:
+                try:
+                    v = meta["timing"]["process"]
+                except:
+                    v = meta["wallclock_time"]
+                
+                total_times[method_description].append(v)
+                
 
             if desc and desc[0] == "no-hydrogen-lines":
                 print(f"Not plotting {method} ({method_description}) in the spectrum figure, since we only did it for comparison.")
@@ -142,6 +158,8 @@ for star_description, star in config["stars"].items():
                 label=method,
                 **plot_kwargs[method],
             )
+
+
 
             #interpolated_flux = np.interp(
             #    obs_wl[si:ei],
@@ -182,6 +200,7 @@ for star_description, star in config["stars"].items():
         ax.set_xlim(lambda_min, lambda_max)
         ax.set_ylim(ylim)
 
+            
     fig.text(0.5, 0.03, 'Wavelength', ha='center')
     axes[-1].legend(frameon=False, loc="lower right")
 
@@ -374,7 +393,16 @@ for s, (ax_row, (star_description, star)) in enumerate(zip(axes, config["stars"]
             with open(output_path, "rb") as fp:
                 spectrum, meta = pickle.load(fp)
             
-            total_times[method_description] = meta["wallclock_time"]
+            #total_times[method_description] = meta["wallclock_time"]
+            if method == "korg":
+                total_times[method_description] = meta["timing"]["t_synthesis"]
+            else:
+                try:
+                    v = meta["timing"]["process"]
+                except:
+                    v = meta["wallclock_time"]
+
+                total_times[method_description] = v
 
         total_times["moog_no-hydrogen-lines"] = total_times.pop("moog")
         total_times["moog"] = 0

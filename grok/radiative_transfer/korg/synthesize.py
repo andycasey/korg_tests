@@ -134,10 +134,19 @@ def synthesize(
         fp.write(process.stderr)
 
     # Parse for the synthesis time.
-    pattern = "Synthesizing..\n\s*(?P<seconds>[\d\.]+) seconds"
-    search = re.finditer(pattern, process.stdout)
-    t_first = float(next(search).groupdict()["seconds"])
-    t_second = float(next(search).groupdict()["seconds"])
+    compilation_stdout, runtime_stdout = process.stdout.split("Time 1 end")
+    pattern = "Timing (?P<description>.+)\n\s*(?P<seconds>[\d\.]+) seconds"
+    timing = dict(process=t_subprocess)
+    for search in re.finditer(pattern, compilation_stdout):
+        description, seconds = search.groups()
+        description = description.replace(" ", "_")
+        timing[f"t_{description}_compilation"] = float(seconds)
+        
+    for search in re.finditer(pattern, runtime_stdout):
+        description, seconds = search.groups()
+        description = description.replace(" ", "_")
+        timing[f"t_{description}"] = float(seconds)
+    
     
     wavelength, flux = np.loadtxt(_path("spectrum.out")).T
 
@@ -152,11 +161,15 @@ def synthesize(
         ("rectified_flux", flux / continuum),
     ])
 
+    # Before: 
+    # - meta['wallclock_time'] was only showing synthesis time after compilation
+    # Now:
+    # - meta['timing']['t_synthesis'] is the time spent in synthesis
+    
+
     meta = dict(
         dir=dir,
-        wallclock_time=t_second,
-        t_first=t_first,
-        t_subprocess=t_subprocess,
+        timing=timing,
         stdout=process.stdout,
         stderr=process.stderr,
         lambda_vacuum_min=lambda_vacuum_min,

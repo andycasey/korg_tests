@@ -205,7 +205,7 @@ def turbospectrum_bsyn(
     
     meta = dict(
         dir=dir,
-        wallclock_time=t_bsyn_lu + t_babsma_lu
+        timing=dict(process=t_bsyn_lu + t_babsma_lu),
         # TODO: lots of stuff..
     )
 

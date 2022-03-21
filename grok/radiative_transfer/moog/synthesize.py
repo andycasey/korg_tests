@@ -220,7 +220,7 @@ def moog_synthesize(
             spectrum["rectified_flux"].extend(rectified_flux[:-1])
             meta["dir"] = dir
 
-        meta["wallclock_time"] = wallclock_time
+        meta["timing"] = dict(process=wallclock_time)
         return (spectrum, meta)
 
     else:
