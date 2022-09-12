@@ -70,3 +70,13 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: ajwheeler/Korg.jl
+
+    - name: Install Korg
+      run: |
+        julia -e 'using Pkg; Pkg.add("Korg")'
+    
+    - name: Check executables
+      run: which MOOGSILENT
+      run: which babsma_lu
+      run: which bsyn_lu
+
