@@ -25,7 +25,8 @@ jobs:
     
     - name: Compile Turbospectrum
       run: |
-        cd Turbospectrum2019/exec-gf-v19.1
+        ls
+        cd Turbospectrum2019/Turbospectrum2019/exec-gf-v19.1
         make
 
     - name: Set up Julia ${{ matrix.julia-version }}
