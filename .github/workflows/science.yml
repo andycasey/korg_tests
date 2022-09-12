@@ -9,7 +9,7 @@ jobs:
         os: [ubuntu-latest] # macos-latest --> gfortran not working on osx yet
         python-version: [3.9]
         julia-version: [1.8.1]
-        gcc_v: [9] # Version of GFortran we want to use.
+        gcc_v: [10] # Version of GFortran we want to use.
         arch: ['x64']
     env:
       FC: gfortran-${{ matrix.gcc_v }}
