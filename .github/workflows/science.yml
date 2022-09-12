@@ -47,6 +47,7 @@ jobs:
         pwd
         cd exec-gf-v19.1
         make
+        echo "{path}"        
 
     - name: Checkout MOOG
       uses: actions/checkout@v3
@@ -58,6 +59,7 @@ jobs:
         pwd
         ls
         make -f Makefile.gh
+        echo "{path}"
 
     - name: Set up Julia ${{ matrix.julia-version }}
       uses: julia-actions/setup-julia@v1
