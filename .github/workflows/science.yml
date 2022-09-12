@@ -18,7 +18,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Set up Turbospectrum
+    - name: Checkout Turbospectrum
       uses: actions/checkout@v3
       with:
         repository: bertrandplez/Turbospectrum2019
@@ -26,7 +26,7 @@ jobs:
     - name: Compile Turbospectrum
       run: |
         ls
-        cd Turbospectrum2019/Turbospectrum2019/exec-gf-v19.1
+        cd exec-gf-v19.1
         make
 
     - name: Set up Julia ${{ matrix.julia-version }}
@@ -35,3 +35,7 @@ jobs:
         version: ${{ matrix.julia-version }}
         arch: 'x64'
         show-versioninfo: false
+
+    - name: Add Korg
+      run: |
+        julia -e 'using Pkg; Pkg.add("Korg.jl")'
