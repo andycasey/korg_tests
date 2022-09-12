@@ -47,17 +47,19 @@ jobs:
         pwd
         cd exec-gf-v19.1
         make
+        which babsma_lu
+        which bsyn_lu
 
     - name: Checkout MOOG
       uses: actions/checkout@v3
       with: 
         repository: jsobeck/MOOG-SCAT_basic_git
 
-    #- name: Compile MOOG
-    #  run: |
-    #    pwd
-    #    ls
-    #    make -f Makefile.rh64silent
+    - name: Compile MOOG
+      run: |
+        pwd
+        ls
+        make -f Makefile.rh64silent
 
     - name: Set up Julia ${{ matrix.julia-version }}
       uses: julia-actions/setup-julia@v1
