@@ -84,11 +84,11 @@ jobs:
     
     - name: Check MOOG
       run: |
-        which MOOGSILENT
+        MOOGSILENT
 
     - name: Check Turbospectrum
       run: |
-        which babsma_lu
+        babsma_lu
 
 
     - name: Summary
