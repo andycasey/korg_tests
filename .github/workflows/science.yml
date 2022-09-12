@@ -51,13 +51,13 @@ jobs:
     - name: Checkout MOOG
       uses: actions/checkout@v3
       with: 
-        repository: jsobeck/MOOG-SCAT_basic_git
-
+        repository: alexji/moog17scat
+        
     - name: Compile MOOG
       run: |
         pwd
         ls
-        make -f Makefile.rh64silent
+        make -f Makefile.maclapsilent
 
     - name: Set up Julia ${{ matrix.julia-version }}
       uses: julia-actions/setup-julia@v1
