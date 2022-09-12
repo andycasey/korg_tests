@@ -65,9 +65,13 @@ jobs:
         ls
         make -f Makefile.gh
         echo "::add-path::$GITHUB_WORKSPACE"
+
+    - run: |
+        ./babsma_lu
+        
     - run: |
         ./MOOGSILENT
-        
+
     - name: Set up Julia ${{ matrix.julia-version }}
       uses: julia-actions/setup-julia@v1
       with:
