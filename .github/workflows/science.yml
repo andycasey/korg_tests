@@ -76,7 +76,10 @@ jobs:
         julia -e 'using Pkg; Pkg.add("Korg")'
     
     - name: Check executables
-      run: which MOOGSILENT
-      run: which babsma_lu
-      run: which bsyn_lu
+      run: |
+        which MOOGSILENT
+        echo 'OK'
+        which babsma_lu
+        echo 'NOW'
+        which bsyn_lu
 
