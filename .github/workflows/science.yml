@@ -47,8 +47,6 @@ jobs:
         pwd
         cd exec-gf-v19.1
         make
-        which babsma_lu
-        which bsyn_lu
 
     - name: Checkout MOOG
       uses: actions/checkout@v3
