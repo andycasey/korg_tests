@@ -2,36 +2,41 @@ name: science
 on: push
 
 jobs:
-  test:
+  Build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: [3.9]
         julia-version: [1.8.1]
+        gcc_v: [9] # Version of GFortran we want to use.
+    env:
+      FC: gfortran
+      GCC_V: ${{ matrix.gcc_v }}
 
     steps:
-      - uses: julia-actions/setup-julia@v1
-      - name: Set up Julia ${{ matrix.julia-version }}
-        with:
-          version: ${{ matrix.julia-version }}
-          arch: ''
-          show-versioninfo: false
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - uses: actions/checkout@v2
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
+    - name: Set up Julia ${{ matrix.julia-version }}
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: ${{ matrix.julia-version }}
+        arch: ''
+        show-versioninfo: false
 
+    - name: Set up Python ${{ matrix.python-version }}    
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
 
-      - name: Install CMake Linux
-        if: contains(matrix.os, 'ubuntu')
-        run: ci/install_cmake.sh
+    - name: Install CMake Linux
+      if: contains(matrix.os, 'ubuntu')
+      run: ci/install_cmake.sh
 
-      - name: Install GFortran Linux
-        if: contains(matrix.os, 'ubuntu')
-        run: |
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_V} 100 \
-          --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${GCC_V} \
-          --slave /usr/bingcov gcov /usr/bin/gcov-${GCC_V}
+    - name: Install GFortran Linux
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_V} 100 \
+        --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${GCC_V} \
+        --slave /usr/bingcov gcov /usr/bin/gcov-${GCC_V}
