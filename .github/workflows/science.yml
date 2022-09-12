@@ -1,6 +1,9 @@
 name: science
 on: push
 
+env:
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
 jobs:
   Build:
     runs-on: ${{ matrix.os }}
@@ -13,7 +16,9 @@ jobs:
         arch: ['x64']
     env:
       FC: gfortran-${{ matrix.gcc_v }}
-      GCC_V: ${{ matrix.gcc_v }}        
+      GCC_V: ${{ matrix.gcc_v }}       
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -85,3 +90,7 @@ jobs:
       run: |
         which babsma_lu
 
+
+    - name: Summary
+      run: |
+        echo "### Hello world! :rocket:" >> $GITHUB_STEP_SUMMARY
