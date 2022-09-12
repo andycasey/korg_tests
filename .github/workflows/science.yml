@@ -53,7 +53,10 @@ jobs:
         cd exec-gf-v19.1
         make
         echo "::add-path::$GITHUB_WORKSPACE"
+    - run: |
+        ./babsma_lu
 
+        
     - name: Checkout MOOG
       uses: actions/checkout@v3
       with: 
