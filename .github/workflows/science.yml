@@ -82,6 +82,6 @@ jobs:
         which MOOGSILENT
 
     - name: Check Turbospectrum
-      runs: |
+      run: |
         which babsma_lu
 
