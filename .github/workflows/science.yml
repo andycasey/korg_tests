@@ -52,11 +52,9 @@ jobs:
         pwd
         cd exec-gf-v19.1
         make
-        echo "::add-path::$GITHUB_WORKSPACE"
-    - run: |
-        ./babsma_lu
+        ./bsyn_lu
 
-        
+
     - name: Checkout MOOG
       uses: actions/checkout@v3
       with: 
@@ -67,13 +65,6 @@ jobs:
         pwd
         ls
         make -f Makefile.gh
-        echo "::add-path::$GITHUB_WORKSPACE"
-
-    - run: |
-        ./babsma_lu
-        
-    - run: |
-        ./MOOGSILENT
 
     - name: Set up Julia ${{ matrix.julia-version }}
       uses: julia-actions/setup-julia@v1
@@ -90,15 +81,6 @@ jobs:
     - name: Install Korg
       run: |
         julia -e 'using Pkg; Pkg.add("Korg")'
-    
-    - name: Check MOOG
-      run: |
-        MOOGSILENT
-
-    - name: Check Turbospectrum
-      run: |
-        babsma_lu
-
 
     - name: Summary
       run: |
