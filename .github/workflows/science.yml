@@ -11,7 +11,7 @@ jobs:
         julia-version: [1.8.1]
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Python ${{ matrix.python-version }}    
       uses: actions/setup-python@v2
@@ -29,6 +29,10 @@ jobs:
         cd exec-gf-v19.1
         make
 
+#    - name: Checkout MOOG
+#      uses: actions/checkout@v3
+#      with:
+
     - name: Set up Julia ${{ matrix.julia-version }}
       uses: julia-actions/setup-julia@v1
       with:
@@ -38,4 +42,5 @@ jobs:
 
     - name: Add Korg
       run: |
-        julia -e 'using Pkg; Pkg.add("Korg.jl")'
+        julia -e 'using Pkg; Pkg.add("Korg")'
+
