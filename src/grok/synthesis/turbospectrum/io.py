@@ -72,4 +72,4 @@ def write_photosphere_for_turbospectrum(photosphere, path):
 
 
 
-registry.register_writer("turbospectrum", Photosphere, write_photosphere_for_turbospectrum)
+registry.register_writer("turbospectrum", Photosphere, write_photosphere_for_turbospectrum, force=True)

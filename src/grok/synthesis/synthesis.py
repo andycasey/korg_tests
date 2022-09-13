@@ -1,7 +1,7 @@
 from tempfile import mkdtemp
-from grok.radiative_transfer.moog.synthesize import moog_synthesize
-from grok.radiative_transfer.turbospectrum.synthesize import turbospectrum_bsyn
-from grok.radiative_transfer.korg.synthesize import synthesize as korg_synthesize
+from grok.synthesis.moog.synthesize import moog_synthesize
+from grok.synthesis.turbospectrum.synthesize import turbospectrum_bsyn
+from grok.synthesis.korg.synthesize import synthesize as korg_synthesize
 
 def synthesize(
         photosphere,
@@ -19,16 +19,16 @@ def synthesize(
 
     :param photosphere:
         The photosphere to use.
-    
+
     :param transitions:
         The list of transitions to include in synthesis.
-    
+
     :param method:
         The radiative transfer code to use for synthesis.
 
     :param lambdas: [optional]
         A three length tuple containing the start wavelength, end wavelength, and the
-        wavelength step size. If `None` is given then this will default to nearly the 
+        wavelength step size. If `None` is given then this will default to nearly the
         range of the transition list, with a step size of 0.01 Angstroms.
 
     :param options: [optional]
@@ -36,7 +36,7 @@ def synthesize(
         transfer codes.
 
     :param verbose: [optional]
-        Provide verbose outputs. The exact verbosity given depends on the radiative 
+        Provide verbose outputs. The exact verbosity given depends on the radiative
         transfer code used.
 
     :param mkdtemp_kwargs: [optional]
@@ -58,7 +58,7 @@ def synthesize(
     dir = mkdtemp(**(mkdtemp_kwargs or dict()))
     if verbose:
         print(f"Running in {dir}")
-    
+
     result = _synthesize(
         photosphere,
         transitions,

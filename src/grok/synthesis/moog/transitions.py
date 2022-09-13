@@ -131,5 +131,5 @@ def write_moog(transitions, path, include_header=True):
 
     return None
 
-registry.register_reader("moog", Transitions, read_moog)
-registry.register_writer("moog", Transitions, write_moog)
+registry.register_reader("moog", Transitions, read_moog, force=True)
+registry.register_writer("moog", Transitions, write_moog, force=True)

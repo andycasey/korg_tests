@@ -1,6 +1,7 @@
 import numpy as np
 import gzip
 import os
+import logging
 from astropy.io import fits
 from io import FileIO, StringIO
 from shutil import copy
@@ -69,12 +70,51 @@ def copy_or_write(input_item, destination_path, **kwargs):
 
     os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
-    if isinstance(input_item, (str, bytes)):    
+    if isinstance(input_item, (str, bytes)) and os.path.exists(input_item):
         copy(input_item, destination_path)
 
     else:
         input_item.write(destination_path, **kwargs)
-        
+    
+
+
+class CustomFormatter(logging.Formatter):
+
+    grey = "\x1b[37;20m"
+    white = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = "%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)d)"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: white + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+
+def get_logger(level=logging.DEBUG):
+    """
+    Get a logger for this code base.
+    """
+    logger = logging.getLogger("grok")
+    logger.setLevel(level)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+
+    ch.setFormatter(CustomFormatter())
+    logger.addHandler(ch)
+    return logger
 
 
 periodic_table = """H                                                  He
@@ -90,3 +130,5 @@ actinoids      =   "Ac Th Pa U  Np Pu Am Cm Bk Cf Es Fm Md No"
 
 periodic_table = periodic_table.replace(" Ba ", " Ba " + lanthanoids + " ") \
     .replace(" Ra ", " Ra " + actinoids + " ").split()
+
+    

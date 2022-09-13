@@ -90,6 +90,9 @@ def synthesize(
                 kwds[f"linelist_path_{i}"] = basename
 
     else:
+        if isinstance(transitions, (list, tuple)) and len(transitions) == 1:
+            transitions, = transitions
+
         template_path = "template.jl"
         transitions_path_basename = "transitions"
         copy_or_write(

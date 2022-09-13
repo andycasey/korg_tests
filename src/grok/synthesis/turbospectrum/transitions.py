@@ -303,6 +303,6 @@ def identify_turbospectrum(origin, *args, **kwargs):
 
     return (re.match(_header_pattern, first_line) is not None)
 
-registry.register_reader("turbospectrum", Transitions, read_transitions)
-registry.register_writer("turbospectrum", Transitions, write_transitions)
-registry.register_identifier("turbospectrum", Transitions, identify_turbospectrum)
+registry.register_reader("turbospectrum", Transitions, read_transitions, force=True)
+registry.register_writer("turbospectrum", Transitions, write_transitions, force=True)
+registry.register_identifier("turbospectrum", Transitions, identify_turbospectrum, force=True)

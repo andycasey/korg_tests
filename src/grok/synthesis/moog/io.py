@@ -197,6 +197,6 @@ def write_marcs_photosphere_for_moog(photosphere, path):
 def write_kurucz_photosphere_for_moog(photosphere, path):
     return write_photosphere_for_moog(photosphere, path, format="KURUCZ")
 
-registry.register_writer("moog", Photosphere, write_photosphere_for_moog)
-registry.register_writer("moog.marcs", Photosphere, write_marcs_photosphere_for_moog)
-registry.register_writer("moog.kurucz", Photosphere, write_kurucz_photosphere_for_moog)
+registry.register_writer("moog", Photosphere, write_photosphere_for_moog, force=True)
+registry.register_writer("moog.marcs", Photosphere, write_marcs_photosphere_for_moog, force=True)
+registry.register_writer("moog.kurucz", Photosphere, write_kurucz_photosphere_for_moog, force=True)

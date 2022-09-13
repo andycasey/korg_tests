@@ -1,0 +1,124 @@
+#!python
+import argparse
+
+parser = argparse.ArgumentParser(description="Compare spectral synthesis codes")
+parser.add_argument("file", type=str, help="Configuration file")
+parser.add_argument("-v", default=True, dest="verbose", action="store_true", help="Verbose mode")
+args = parser.parse_args()
+
+import json
+import sys
+import yaml
+import logging
+from grok.utils import get_logger
+from grok.photospheres import Photosphere
+from grok.transitions import Transitions
+from grok.synthesis import synthesize
+
+from grok.synthesis.turbospectrum.transitions import should_keep
+
+logger = get_logger(logging.DEBUG if args.verbose else logging.debug)
+
+
+with open(args.file, "r") as fp:
+    config = yaml.load(fp, Loader=yaml.FullLoader)
+
+logger.debug(f"Loading photosphere from {config['photosphere']}")
+photosphere = Photosphere.read(config["photosphere"])
+
+try:
+    methods = config["spectral_synthesis"].keys()
+except:
+    logger.exception(f"No spectral synthesis codes listed to try in ``spectral_synthesis``")
+    sys.exit(1)
+
+lambdas = lambda_min, lambda_max, lambda_step = (
+    config["wavelengths"]["min"],
+    config["wavelengths"]["max"],
+    config["wavelengths"]["step"]
+)
+
+available_methods = ("moog", "korg", "turbospectrum")
+for method in methods:
+    if method not in available_methods:
+        logger.exception(f"Method '{method}' not one of the available methods: {', '.join(available_methods)}")
+        sys.exit(1)
+
+
+default_consider_reasons = (0, 1, 2, 3, 4)
+for method in methods:
+
+    if method != "korg":
+        logger.warning(f"Skipping method {method}")
+        continue
+
+    options = {}
+
+    if method == "moog":
+        
+        moog_options = config["spectral_synthesis"][method]
+        
+        window = moog_options.get("window", 2)
+
+        # Handle chunking.
+        n_chunks = moog_options.get("n_chunks", None)
+        if n_chunks is not None:
+            options["n_chunks"] = n_chunks
+
+        # Handle transition restrictions.
+        max_transitions = moog_options.get("max_transitions", None)
+        if max_transitions is not None:
+            # Load transitions.
+            transitions = []
+            for path in config["transitions"]["paths"]:
+                transitions.extend(Transitions.read(path))
+
+            N = len(transitions)
+            if N > max_transitions:
+                logger.debug(f"Input transitions exceeds maximum allowed for {method}: {N} > {max_transitions}")
+
+                consider_reasons = moog_options.get("restrict_to_keep_on_reasons", default_consider_reasons)
+                in_window = lambda t: (lambda_max + window) >= t.lambda_vacuum.value >= (lambda_min - window)
+                keep = lambda t: should_keep(t, consider_reasons) and in_window(t)
+
+                transitions = list(filter(keep, transitions))
+                N_after = len(transitions)
+                
+                logger.debug(f"There are {N_after} transitions after restricting by window and reasons: {consider_reasons}")
+
+                restrict_to = moog_options.get("restrict_to_strongest_transitions", None)
+
+                if N_after > max_transitions and restrict_to is not None:
+                    logger.debug(f"Restricting {restrict_to} transitions based on strength")
+
+                    raise NotImplementedError
+        
+    elif method == "korg":
+        # Just supply transitions as paths because Korg will read everything in.
+        transitions = config["transitions"]["paths"]
+        options.update(config["spectral_synthesis"]["korg"])
+
+    logger.debug(f"Executing {method} with options: {options}")
+    try:
+        spectrum, meta = synthesize(
+            photosphere,
+            transitions,
+            method=method,
+            lambdas=lambdas,
+            options=options
+        )
+    except:
+        logger.exception(f"Exception occurred when executing {method} with options: {options}")
+        raise
+    else:
+        logger.debug("Done.")
+        try:
+            logger.debug(f"Standard output:\n{meta.pop('stdout')}")
+        except:
+            None
+        try:
+            logger.debug(f"Standard error:\n{meta.pop('stderr')}")
+        except:
+            None
+        logger.debug(f"Metadata: {json.dumps(meta, indent=4)}")
+        
