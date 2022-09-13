@@ -4,6 +4,8 @@ import argparse
 parser = argparse.ArgumentParser(description="Compare spectral synthesis codes")
 parser.add_argument("file", type=str, help="Configuration file")
 parser.add_argument("-v", default=True, dest="verbose", action="store_true", help="Verbose mode")
+# TODO: Turn off verbose mode by default when everything is working smoothly.
+
 args = parser.parse_args()
 
 import json
@@ -23,6 +25,8 @@ logger = get_logger(logging.DEBUG if args.verbose else logging.debug)
 with open(args.file, "r") as fp:
     config = yaml.load(fp, Loader=yaml.FullLoader)
 
+name = config["name"]
+logger.debug(f"Running experiment named {name}")
 logger.debug(f"Loading photosphere from {config['photosphere']}")
 photosphere = Photosphere.read(config["photosphere"])
 
@@ -122,3 +126,22 @@ for method in methods:
             None
         logger.debug(f"Metadata: {json.dumps(meta, indent=4)}")
         
+        # Let's make grok create a figure, which we will upload as an
+        # artefact
+        method_labels = {
+            "moog": "MOOG",
+            "korg": "Korg",
+            "turbospectrum": "TurboSpectrum"
+        }
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot(
+            spectrum["wavelength"],
+            spectrum["rectified_flux"],
+            label=method_labels.get(method, method)
+        )
+        ax.legend(frameon=False)
+        ax.set_xlim(lambda_min, lambda_max)
+        figure_path = f"{name}-{lambda_min:.0f}-{lambda_max:.0f}-{method}-rectified.png"
+        fig.savefig(figure_path)
+        logger.debug(f"Created figure {figure_path}")
