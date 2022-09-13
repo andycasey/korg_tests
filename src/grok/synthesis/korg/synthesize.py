@@ -7,7 +7,7 @@ from pkg_resources import resource_stream
 from time import time
 from astropy import units as u
 
-from grok.radiative_transfer.utils import get_default_lambdas
+from grok.synthesis.utils import get_default_lambdas
 from grok.transitions.utils import (air_to_vacuum, vacuum_to_air)
 from grok.utils import copy_or_write
 
@@ -39,11 +39,11 @@ def synthesize(
         photosphere,
         _path(photosphere_path_basename),
         format=kwargs.get("photosphere_format", "marcs")
-    )    
+    )
 
     lambda_vacuum_min = np.round(air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value, 2) - 0.01
     lambda_vacuum_max = np.round(air_to_vacuum(lambda_air_max * u.Angstrom).to("Angstrom").value, 2) + 0.01
-    
+
     kwds = dict(
         # Korg works in vacuum wavelengths.
         # TODO: Don't assume units for lambdas.
@@ -52,7 +52,7 @@ def synthesize(
         lambda_vacuum_delta=lambda_delta,
         atmosphere_path=photosphere_path_basename,
         metallicity=photosphere.meta["m_h"],
-        # I'm just giving a different metallicity for the initial run so that people don't 
+        # I'm just giving a different metallicity for the initial run so that people don't
         # incorrectly think the result from the second run is actually being cached.
         fake_metallicity=photosphere.meta["m_h"] - 0.25,
         korg_read_transitions_format=kwargs.get("korg_read_transitions_format", "vald"),
@@ -63,7 +63,7 @@ def synthesize(
 
     # I wish I knew some Julia... eeek!
     if isinstance(transitions, (list, tuple)) and len(transitions) == 2:
-        
+
         # Special case for TS 15000 - 15500
         if any(os.path.basename(path).startswith("turbospec.") for path in transitions):
             template_path = "template_turbospectrum.jl"
@@ -74,7 +74,7 @@ def synthesize(
                 copy_or_write(
                     each,
                     _path(basename),
-                    format=kwargs.get("transitions_format", "vald.stellar")                
+                    format=kwargs.get("transitions_format", "vald.stellar")
                 )
                 kwds[f"linelist_path_{i}"] = basename
         else:
@@ -117,7 +117,7 @@ def synthesize(
     # (I don't know how Julia works, but this could introduce some weird time penalty on Julia. Should check on that.)
     t_init = time()
     process = subprocess.run([
-            "julia", 
+            "julia",
             julia_script_basename
         ],
         cwd=dir,
@@ -127,8 +127,8 @@ def synthesize(
     )
     t_subprocess = time() - t_init
     if process.returncode != 0:
-        raise RuntimeError(process.stderr)    
-    
+        raise RuntimeError(process.stderr)
+
 
     # Write the stdout and stderr.
     with open(_path("stdout"), "w") as fp:
@@ -144,13 +144,13 @@ def synthesize(
         description, seconds = search.groups()
         description = description.replace(" ", "_")
         timing[f"t_{description}_compilation"] = float(seconds)
-        
+
     for search in re.finditer(pattern, runtime_stdout):
         description, seconds = search.groups()
         description = description.replace(" ", "_")
         timing[f"t_{description}"] = float(seconds)
-    
-    
+
+
     wavelength, flux = np.loadtxt(_path("spectrum.out")).T
 
     continuum_wavelength, continuum = np.loadtxt(_path("continuum.out")).T
@@ -164,11 +164,11 @@ def synthesize(
         ("rectified_flux", flux / continuum),
     ])
 
-    # Before: 
+    # Before:
     # - meta['wallclock_time'] was only showing synthesis time after compilation
     # Now:
     # - meta['timing']['t_synthesis'] is the time spent in synthesis
-    
+
 
     meta = dict(
         dir=dir,

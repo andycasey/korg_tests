@@ -5,7 +5,7 @@ from collections import OrderedDict
 from pkg_resources import resource_stream
 from time import time
 
-from grok.radiative_transfer.utils import get_default_lambdas
+from grok.synthesis.utils import get_default_lambdas
 from grok.utils import copy_or_write
 
 def turbospectrum_bsyn(
@@ -25,16 +25,16 @@ def turbospectrum_bsyn(
     ):
     """
     Synthesize a stellar spectrum using Turbospectrum's `bsyn` routine.
-    
+
     :param photosphere:
         The model photosphere.
-    
+
     :param transitions:
         The atomic and molecular line transitions.
-        
+
     :param lambdas: [optional]
         A three length tuple containing the start wavelength, end wavelength, and the
-        wavelength step size. If `None` is given then this will default to nearly the 
+        wavelength step size. If `None` is given then this will default to nearly the
         range of the transition list, with a step size of 0.01 Angstroms.
 
     # TODO: Docs for abundances, isotopes.
@@ -48,7 +48,7 @@ def turbospectrum_bsyn(
 
     :param dir: [optional]
         The directory to execute Turbospectrum from.
-    """    
+    """
 
     if lambdas is not None:
         lambda_min, lambda_max, lambda_delta = lambdas
@@ -67,7 +67,7 @@ def turbospectrum_bsyn(
         copy_or_write(
             opacities,
             _path(modelopac_basename)
-        )        
+        )
 
     # Turbospectrum allows for transitions to be written into multiple different files.
     # TODO: Need to find out if that's ever a legitamite use case. Otherwise let's merge
@@ -90,10 +90,10 @@ def turbospectrum_bsyn(
     else:
         copy_or_write(
             transitions,
-            _path(transition_basename_format.format(i=0)), 
+            _path(transition_basename_format.format(i=0)),
             **kwds
         )
-    
+
         transition_paths_formatted = [transition_basename_format.format(i=i) for i in range(T)]
 
     if hydrogen_lines:
@@ -112,7 +112,7 @@ def turbospectrum_bsyn(
         lambda_max=lambda_max,
         lambda_delta=lambda_delta,
         marcs_file_flag=".true." if photosphere.meta["read_format"] == "marcs" else ".false.",
-        metallicity=photosphere.meta["m_h"],          
+        metallicity=photosphere.meta["m_h"],
         alpha_fe=0,             # TODO: parse from abundances
         helium_abundance=0,     # TODO: parse from abundances
         r_process_abundance=0,  # TODO: parse from abundances
@@ -127,8 +127,8 @@ def turbospectrum_bsyn(
     )
 
     if abundances is not None or isotopes is not None:
-        raise NotImplementedError        
-    
+        raise NotImplementedError
+
 
 
     # Symbolically link the turbospectrum data folder.
@@ -165,13 +165,13 @@ def turbospectrum_bsyn(
         t_babsma_lu = time() - t_init
         if process.returncode != 0:
             raise RuntimeError(process.stderr)
-            
+
     # Write the bsyn_lu control file.
     with resource_stream(__name__, "bsyn.template") as fp:
         bsyn_template = fp.read()
         if isinstance(bsyn_template, bytes):
             bsyn_template = bsyn_template.decode("utf-8")
-            
+
     contents = bsyn_template.format(**kwds)
     input_path = _path("bsyn.par")
     with open(input_path, "w") as fp:
@@ -202,7 +202,7 @@ def turbospectrum_bsyn(
         ("flux", flux),
         ("flux_unit", "1e-17 erg / (Angstrom cm2 s)"),
     ])
-    
+
     meta = dict(
         dir=dir,
         timing=dict(process=t_bsyn_lu + t_babsma_lu),

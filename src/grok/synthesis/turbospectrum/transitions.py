@@ -53,7 +53,7 @@ def should_keep(transition, return_reason=False, consider_reasons=(0, 1, 2, 3, 4
     The logic here follows that from the VALD export script by Bertrand Plez.
     """
     reason = None
-    
+
     if transition.species.charge not in (0, 1) and 0 in consider_reasons:
         reason = "Not a neutral or singly ionised species."
     elif transition.E_lower >= (15 * u.eV) and 1 in consider_reasons:
@@ -66,7 +66,7 @@ def should_keep(transition, return_reason=False, consider_reasons=(0, 1, 2, 3, 4
     elif not transition.is_molecule and transition.species.charge == 2 \
         and transition.E_upper is not None and transition.E_upper.to("eV").value > _ionization_potential_p2[transition.species.Zs[-1] - 1] and 4 in consider_reasons:
         reason = f"Singly ionized atomic species is a bound free transition ({transition.E_upper.value} > {_ionization_potential_p2[transition.species.Zs[-1] - 1]})."
-    
+
     return reason if return_reason else reason is None
 
 
@@ -81,7 +81,7 @@ def update_missing_transition_data(transition):
     t = transition.copy()
     if np.isclose(t.vdW, 0, atol=1e-10):
         t.vdW = lookup_approximate_vdW(t)
-    
+
     t.gamma_rad = parse_gamma_rad(t)
     t.equivalent_width = t.equivalent_width or 0
     t.equivalent_width_error = t.equivalent_width_error or 1.0
@@ -101,7 +101,7 @@ def lookup_approximate_vdW(transition):
 
     default_value = 2.5 # Mackle et al. 1975 A&A 38, 239
 
-    neutral_damping = { 
+    neutral_damping = {
         "Na": 2.0, # Holweger 1971 A&A 10, 128
         "Si": 1.3, # Holweger 1973 A&A 26, 275
         "Ca": 1.8, # O'Neill & Smith 1980 A&A 81, 100
@@ -123,7 +123,7 @@ def lookup_approximate_vdW(transition):
             try:
                 return ionized_damping[transition.species.atoms[0]]
             except KeyError:
-                return default_value   
+                return default_value
         else:
             # We shouldn't even be bothering with these highly ionized species!
             return default_value
@@ -134,7 +134,7 @@ def lookup_approximate_vdW(transition):
 def read_transitions(path):
     """
     Read transitions formatted for Turbospectrum.
-    
+
     :param path:
         The path where the transitions are written.
     """
@@ -146,7 +146,7 @@ def read_transitions(path):
         "lambda_air", "E_lower", "log_gf",
         "vdW", "g_upper", "gamma_rad",
         "equivalent_width", "equivalent_width_error"
-    )    
+    )
     i, transitions = (0, [])
     while i < len(lines):
         if len(lines[i].strip()) == 0:
@@ -156,7 +156,7 @@ def read_transitions(path):
         common = re.match(_header_pattern, lines[i])
         if common is None:
             raise ValueError(f"Cannot match header pattern '{_header_pattern}' from '{lines[i]}'")
-        
+
         common = common.groupdict()
         num = int(common.pop("num"))
 
@@ -166,16 +166,16 @@ def read_transitions(path):
         # Update the charge, using the representation like "Th II", since Turbospectrum does
         # not encode the ionisation in this species representation.
         common["species"].charge = Species(lines[i + 1][1:-1]).charge
-        
+
         for j, line in enumerate(lines[i+2:i+2+num], start=i+2):
-            
+
             match = re.match(_line_pattern, line)
             if match is None:
                 match = re.match(_line_pattern_short, line)
             transition = match.groupdict()
-            
+
             row = { **common, **transition }
-            
+
             # Format things.
             for key in keys_as_floats:
                 row.setdefault(key, 0) # in case we only have things from the short format
@@ -197,22 +197,22 @@ def read_transitions(path):
                 **row
             ))
         i += 2 + num
-    
+
     return Transitions(transitions)
-    
+
 
 def write_transitions(
-        transitions, 
-        path, 
+        transitions,
+        path,
         skip_irrelevant_transitions=False,
         update_missing_data=False,
     ):
     """
     Write transitions to disk in a format that Turbospectrum accepts.
-    
+
     :param transitions:
         The atomic and molecular transitions.
-    
+
     :param path:
         The path to store the transitions on disk.
 
@@ -221,8 +221,8 @@ def write_transitions(
         translating VALD-formatted line lists to Turbospectrum format (default: False).
 
     :param update_missing_data: [optional]
-        Update the transitions with missing data values from a lookup table using the 
-        `grok.radiative_transfer.turbospectrum.update_missing_transition_data` function (default: False).
+        Update the transitions with missing data values from a lookup table using the
+        `grok.synthesis.turbospectrum.update_missing_transition_data` function (default: False).
     """
 
     if skip_irrelevant_transitions:
@@ -244,12 +244,12 @@ def write_transitions(
 
         # Sort so we represent TiO as 822, etc.
         indices = [index for index in np.argsort(species.Zs) if species.Zs[index] > 0]
-        
+
         #formula = "".join([f"{Z:0>2.0f}" for Z in species.Zs if Z > 0])
         #isotope = "".join([f"{I:0>3.0f}" for Z, I in zip(species.Zs, species.isotopes) if Z > 0])
         formula = "".join([f"{species.Zs[index]:0>2.0f}" for index in indices])
         isotope = "".join([f"{species.isotopes[index]:0>3.0f}" for index in indices])
-        
+
         # Left-pad and strip formula.
         formula = formula.lstrip("0")
         formula = f"{formula: >4}"
@@ -293,7 +293,7 @@ def identify_turbospectrum(origin, *args, **kwargs):
     """
     if args[1] is None:
         return False
-    
+
     first_line = args[1].readline()
     if isinstance(first_line, bytes):
         first_line = first_line.decode("utf-8")
