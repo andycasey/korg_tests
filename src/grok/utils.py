@@ -77,6 +77,9 @@ def copy_or_write(input_item, destination_path, **kwargs):
         input_item.write(destination_path, **kwargs)
     
 
+def expand_path(path):
+    return os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+
 
 class CustomFormatter(logging.Formatter):
 

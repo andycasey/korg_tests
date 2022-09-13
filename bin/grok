@@ -3,16 +3,17 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Compare spectral synthesis codes")
 parser.add_argument("file", type=str, help="Configuration file")
-parser.add_argument("-v", default=True, dest="verbose", action="store_true", help="Verbose mode")
-# TODO: Turn off verbose mode by default when everything is working smoothly.
+parser.add_argument("-v", dest="verbose", action="store_true", help="Verbose mode")
+parser.add_argument("-o", "--output-dir", type="str", default=None, help="Output directory")
 
 args = parser.parse_args()
 
+import os
 import json
 import sys
 import yaml
 import logging
-from grok.utils import get_logger
+from grok.utils import get_logger, expand_path
 from grok.photospheres import Photosphere
 from grok.transitions import Transitions
 from grok.synthesis import synthesize
@@ -21,12 +22,24 @@ from grok.synthesis.turbospectrum.transitions import should_keep
 
 logger = get_logger(logging.DEBUG if args.verbose else logging.debug)
 
-
 with open(args.file, "r") as fp:
     config = yaml.load(fp, Loader=yaml.FullLoader)
 
 name = config["name"]
 logger.debug(f"Running experiment named {name}")
+
+lambdas = lambda_min, lambda_max, lambda_step = (
+    config["wavelengths"]["min"],
+    config["wavelengths"]["max"],
+    config["wavelengths"]["step"]
+)
+
+output_dir = args.output_dir or f"{name}-{lambda_min:.0f}-{lambda_max:.0f}"
+output_dir = expand_path(output_dir)
+os.makedirs(output_dir, exist_ok=True)
+
+logger.debug(f"Output directory: {output_dir}")
+
 logger.debug(f"Loading photosphere from {config['photosphere']}")
 photosphere = Photosphere.read(config["photosphere"])
 
@@ -36,11 +49,6 @@ except:
     logger.exception(f"No spectral synthesis codes listed to try in ``spectral_synthesis``")
     sys.exit(1)
 
-lambdas = lambda_min, lambda_max, lambda_step = (
-    config["wavelengths"]["min"],
-    config["wavelengths"]["max"],
-    config["wavelengths"]["step"]
-)
 
 available_methods = ("moog", "korg", "turbospectrum")
 for method in methods:
