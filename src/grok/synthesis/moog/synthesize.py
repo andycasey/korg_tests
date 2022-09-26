@@ -150,7 +150,7 @@ def moog_synthesize(
     if n_chunks > 1:
         chunk_size = (lambda_max - lambda_min) / n_chunks
 
-        wallclock_time = 0
+        t_synthesis = 0
         spectrum = OrderedDict([
             ("wavelength", []),
             ("wavelength_unit", "Angstrom"),
