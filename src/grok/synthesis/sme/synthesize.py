@@ -103,7 +103,7 @@ def sme_synthesize(
     # TODO: Where to start timing from...?
     t_init = time()
     sme = synthesize_spectrum(sme)
-    t_process = time() - t_init
+    t_synthesis = time() - t_init
 
     spectrum = OrderedDict([
         ("wavelength", sme.wave[0]),
@@ -111,7 +111,7 @@ def sme_synthesize(
         ("rectified_flux", sme.synth[0])
     ])
     timing = dict(
-        process=t_process, 
+        t_synthesis=t_synthesis, 
     )
     meta = dict(sme_structure=sme.to_dict())
     return (spectrum, timing, meta)

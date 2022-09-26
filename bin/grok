@@ -111,8 +111,13 @@ for comparison in config["comparisons"]:
                     transition.log_gf = log_gf
 
             # Exclude strong lines.
+            input_transitions_format = comparison["transitions"].get("input_transitions_format", None)
+
             if "strong_path" in comparison["transitions"]:
-                strong_transitions = Transitions.read(resolve_path(comparison["transitions"]["strong_path"]))
+                strong_transitions = Transitions.read(
+                    resolve_path(comparison["transitions"]["strong_path"]),
+                    format=input_transitions_format
+                )
                 transitions = Transitions([t for t in transitions if t not in strong_transitions])
                 options["strong_transitions"] = strong_transitions
 

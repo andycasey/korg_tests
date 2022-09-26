@@ -217,7 +217,7 @@ def turbospectrum_bsyn(
         # TODO: lots of stuff..
     )
     timing = dict(
-        process=t_bsyn_lu + t_babsma_lu,
+        t_synthesis=t_bsyn_lu + t_babsma_lu,
         t_bsyn_lu=t_bsyn_lu,
         t_babsma_lu=t_babsma_lu
     )

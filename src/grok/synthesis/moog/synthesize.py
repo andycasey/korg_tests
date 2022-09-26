@@ -208,7 +208,7 @@ def moog_synthesize(
                 encoding="ascii",
                 timeout=timeout
             )
-            wallclock_time += (time() - t_init)
+            t_synthesis += (time() - t_init)
             if process.returncode != 0:
                 raise RuntimeError(process.stderr)
 
@@ -223,7 +223,7 @@ def moog_synthesize(
             spectrum["rectified_flux"].extend(rectified_flux[:-1])
             meta["dir"] = dir
 
-        timing = dict(process=wallclock_time)
+        timing = dict(t_synthesis=t_synthesis)
 
     else:
 
@@ -246,7 +246,7 @@ def moog_synthesize(
             encoding="ascii",
             timeout=timeout
         )
-        t_moogsilent = time() - t_init
+        t_synthesis = time() - t_init
         if process.returncode != 0:
             raise RuntimeError(process.stderr)
 
@@ -264,7 +264,7 @@ def moog_synthesize(
         meta.update(
             parse_standard_synth_output(_path(kwds["standard_out"]))
         )
-        timing = dict(process=t_moogsilent)
+        timing = dict(t_synthesis=t_synthesis)
     
     # Fix spectrum to be in vacuum wavelengths
     spectrum["wavelength"] = air_to_vacuum(spectrum["wavelength"] * u.Angstrom).value

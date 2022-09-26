@@ -6,7 +6,7 @@ common:
       photosphere: data/photospheres/marcs_mod/s4250_g+1.5_m1.0_t02_st_z-0.50_a+0.20_c+0.00_n+0.00_o+0.20_r+0.00_s+0.00.mod.gz
     hd49933: &hd49933
       photosphere: data/photospheres/marcs_mod/p6250_g+4.0_m0.0_t02_st_z-0.50_a+0.20_c+0.00_n+0.00_o+0.20_r+0.00_s+0.00.mod.gz
-    hd122563: 
+    hd122563: &hd122563
       photosphere: data/photospheres/marcs_mod/s4500_g+1.5_m1.0_t02_st_z-2.50_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod.gz
 
   regions: 
@@ -48,6 +48,7 @@ common:
         paths: 
         - data/transitions/all-6540-6559.vald
         - data/transitions/all-6559-6578.vald
+        strong_path: data/transitions/strong-6540-6578.vald # only relevant for moog
         input_transitions_format: vald
       wavelengths: # vacuum
         min: 6540
@@ -60,7 +61,7 @@ common:
         - data/transitions/turbospec.20180901.atoms
         - data/transitions/turbospec.20180901.molec
         strong_path: data/transitions/strong-15000-15500.atoms # only relevant for moog
-        corrected_isotope_path: data/transitions/turbospectrum_sorted_corrected.list # only for moog
+        corrected_isotope_path: data/transitions/turbospectrum_sorted_corrected.list # only for moog/sme
         input_transitions_format: turbospectrum
       wavelengths: 
         min: 15000
@@ -88,43 +89,11 @@ common:
         - [Ti, O]
 
 
-#  - name: Sol_3660_3680
-#    << : *sun
-#    << : *3660_3680
-#    spectral_synthesis:
-#      *common_options
-#
-#  - name: Sol_3930_3950
-#    << : *sun
-#    << : *3930_3950
-#    spectral_synthesis:
-#      *common_options
-#
-#  - name: Sol_5160_5175
-#    << : *sun
-#    << : *5160_5190
-#    spectral_synthesis:
-#      *common_options
-#    
-#  - name: Sol_6540_6578
-#    << : *sun
-#    << : *6540_6578
-#    spectral_synthesis:
-#      << : *common_options
-#      moog:
-#        << : *moog_options
-#        max_transitions: 15000
-#
-#  - name: Sol_15000_15500
-#    << : *sun
-#    << : *15000_15500
-#    spectral_synthesis:
-#      << : *common_options
-#      moog:
-#        << : *moog_options
-#        max_transitions: 100000
-#        n_chunks: 20
+
+
 comparisons:
+
+  # Arcturus
   - name: Arcturus_3660_3680
     << : *arcturus
     << : *3660_3680
@@ -137,7 +106,7 @@ comparisons:
     spectral_synthesis:
       *common_options
 
-  - name: Arcturus_5160_5175
+  - name: Arcturus_5160_5190
     << : *arcturus
     << : *5160_5190
     spectral_synthesis:
@@ -161,3 +130,117 @@ comparisons:
         << : *moog_options
         max_transitions: 100000
         n_chunks: 20
+
+
+  # HD449933
+  - name: HD49933_3660_3680
+    << : *hd49933
+    << : *3660_3680
+    spectral_synthesis:
+      *common_options
+
+  - name: HD49933_3930_3950
+    << : *hd49933
+    << : *3930_3950
+    spectral_synthesis:
+      *common_options
+
+  - name: HD49933_5160_5190
+    << : *hd49933
+    << : *5160_5190
+    spectral_synthesis:
+      *common_options
+    
+  - name: HD49933_6540_6578
+    << : *hd49933
+    << : *6540_6578
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 15000
+
+  - name: HD49933_15000_15500
+    << : *hd49933
+    << : *15000_15500
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 100000
+        n_chunks: 20
+
+  # HD122563
+  - name: HD122563_3660_3680
+    << : *hd122563
+    << : *3660_3680
+    spectral_synthesis:
+      *common_options
+
+  - name: HD122563_3930_3950
+    << : *hd122563
+    << : *3930_3950
+    spectral_synthesis:
+      *common_options
+
+  - name: HD122563_5160_5190
+    << : *hd122563
+    << : *5160_5190
+    spectral_synthesis:
+      *common_options
+    
+  - name: HD122563_6540_6578
+    << : *hd122563
+    << : *6540_6578
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 15000
+
+  - name: HD122563_15000_15500
+    << : *hd122563
+    << : *15000_15500
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 100000
+        n_chunks: 20    
+
+  - name: Sol_3660_3680
+    << : *sun
+    << : *3660_3680
+    spectral_synthesis:
+      *common_options
+
+  - name: Sol_3930_3950
+    << : *sun
+    << : *3930_3950
+    spectral_synthesis:
+      *common_options
+
+  - name: Sol_5160_5190
+    << : *sun
+    << : *5160_5190
+    spectral_synthesis:
+      *common_options
+    
+  - name: Sol_6540_6578
+    << : *sun
+    << : *6540_6578
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 15000
+
+  - name: Sol_15000_15500
+    << : *sun
+    << : *15000_15500
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 100000
+        n_chunks: 20        
