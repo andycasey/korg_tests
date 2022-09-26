@@ -5,6 +5,7 @@ parser = argparse.ArgumentParser(description="Compare spectral synthesis codes")
 parser.add_argument("file", type=str, help="Configuration file")
 parser.add_argument("-v", dest="verbose", action="store_true", help="Verbose mode")
 parser.add_argument("-o", "--output-dir", type=str, default=None, help="Output directory")
+parser.add_argument("--clobber", action="store_true", help="Clobber output files")
 
 args = parser.parse_args()
 
@@ -74,8 +75,13 @@ for comparison in config["comparisons"]:
             sys.exit(1)
 
 
-    default_consider_reasons = (0, 1, 2, 3, 4)
+    default_consider_reasons = (0, )
     for method in methods:
+        output_path = os.path.join(output_dir, f"{name}-{method}.pkl")
+        if os.path.exists(output_path) and not args.clobber:
+            logger.info(f"Output file {output_path} already exists. Skipping.")
+            continue
+            
 
         logger.debug(f"Preparing synthesis with {method}")
 
@@ -191,7 +197,13 @@ for comparison in config["comparisons"]:
                     
             options.update(comparison["spectral_synthesis"]["sme"] or {})
 
-        elif method in ("korg", "turbospectrum"):
+        elif method == "turbospectrum":
+            # Just supply transitions as paths
+            transitions = list(map(resolve_path, comparison["transitions"]["paths"]))
+            options.update(comparison["spectral_synthesis"][method] or {})
+            options["input_transitions_format"] = comparison["transitions"].get("input_transitions_format", None)
+
+        elif method == "korg":
             # Just supply transitions as paths
             transitions = list(map(resolve_path, comparison["transitions"]["paths"]))
             options.update(comparison["spectral_synthesis"][method] or {})
@@ -228,7 +240,6 @@ for comparison in config["comparisons"]:
             
             # Save the outputs.
             outputs = (spectrum, timing, meta, options)
-            output_path = os.path.join(output_dir, f"{name}-{method}.pkl")
             with open(output_path, "wb") as fp:
                 pickle.dump(outputs, fp)
 

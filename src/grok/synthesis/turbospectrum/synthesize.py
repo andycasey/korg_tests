@@ -23,7 +23,7 @@ def turbospectrum_bsyn(
         opacities=None,
         verbose=False,
         dir=None,
-        input_transition_format=None,
+        input_transitions_format=None,
         hydrogen_lines=True,
         skip_irrelevant_transitions=True,
         update_missing_data=True,
@@ -80,13 +80,13 @@ def turbospectrum_bsyn(
     if isinstance(transitions[0], str):
         transition_paths_formatted = []
         for T, path in enumerate(transitions, start=1):
-            if input_transition_format == "turbospectrum":    
+            if input_transitions_format == "turbospectrum":    
                 copy_or_write(
                     path,
                     _path(transition_basename_format.format(i=T)),
                 )
             else:
-                _transitions = Transitions.read(path, format=input_transition_format)
+                _transitions = Transitions.read(path, format=input_transitions_format)
                 _transitions = Transitions([t for t in _transitions if t.species.atoms != ("H", )])
                 _transitions.write(
                     _path(transition_basename_format.format(i=T)), 
