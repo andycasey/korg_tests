@@ -172,7 +172,6 @@ def synthesize(
 
     meta = dict(
         dir=dir,
-        timing=timing,
         stdout=process.stdout,
         stderr=process.stderr,
         lambda_vacuum_min=lambda_vacuum_min,
@@ -183,4 +182,4 @@ def synthesize(
     match = re.search("Korg v(?P<korg_version_major>\d+)\.(?P<korg_version_minor>\d+)\.(?P<korg_version_micro>\d+)", process.stdout)
     meta.update(match.groupdict())
 
-    return (result, meta)
+    return (result, timing, meta)

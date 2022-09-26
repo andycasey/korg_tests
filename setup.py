@@ -18,7 +18,9 @@ setup(
     data_files=[
         ("grok/synthesis/korg", 
             [
-                "src/grok/synthesis/korg/template.jl"
+                "src/grok/synthesis/korg/template.jl",
+                "src/grok/synthesis/korg/template_turbospectrum.jl",
+                "src/grok/synthesis/korg/template_two_linelists.jl"
             ]
         ),
         ("grok/synthesis/moog", ["src/grok/synthesis/moog/moog_synth.template"]),

@@ -1,7 +1,6 @@
 from tempfile import mkdtemp
-from grok.synthesis.moog.synthesize import moog_synthesize
-from grok.synthesis.turbospectrum.synthesize import turbospectrum_bsyn
-from grok.synthesis.korg.synthesize import synthesize as korg_synthesize
+
+AVAILABLE_METHODS = ("moog", "turbospectrum", "korg", "sme")
 
 def synthesize(
         photosphere,
@@ -44,15 +43,16 @@ def synthesize(
         before executing the synthesis.
     """
 
-    available_methods = {
-        "moog": moog_synthesize,
-        "turbospectrum": turbospectrum_bsyn,
-        "korg": korg_synthesize
-    }
-    try:
-        _synthesize = available_methods[str(method).lower().strip()]
-    except KeyError:
-        raise ValueError(f"Method '{method}' unknown. Available methods: {', '.join(available_methods.keys())}")
+    if method == "moog":
+        from grok.synthesis.moog.synthesize import moog_synthesize as _synthesize
+    elif method == "turbospectrum":
+        from grok.synthesis.turbospectrum.synthesize import turbospectrum_bsyn as _synthesize
+    elif method == "korg":
+        from grok.synthesis.korg.synthesize import synthesize as _synthesize
+    elif method == "sme":
+        from grok.synthesis.sme.synthesize import sme_synthesize as _synthesize
+    else:
+        raise ValueError(f"Method '{method}' unknown. Available methods: {', '.join(list(AVAILABLE_METHODS))}")
 
     options = options or dict()
     dir = mkdtemp(**(mkdtemp_kwargs or dict()))

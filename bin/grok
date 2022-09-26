@@ -4,7 +4,7 @@ import argparse
 parser = argparse.ArgumentParser(description="Compare spectral synthesis codes")
 parser.add_argument("file", type=str, help="Configuration file")
 parser.add_argument("-v", dest="verbose", action="store_true", help="Verbose mode")
-parser.add_argument("-o", "--output-dir", type="str", default=None, help="Output directory")
+parser.add_argument("-o", "--output-dir", type=str, default=None, help="Output directory")
 
 args = parser.parse_args()
 
@@ -13,143 +13,218 @@ import json
 import sys
 import yaml
 import logging
+import pickle
+import numpy as np
+
 from grok.utils import get_logger, expand_path
 from grok.photospheres import Photosphere
 from grok.transitions import Transitions
-from grok.synthesis import synthesize
+from grok.synthesis import synthesize, AVAILABLE_METHODS
 
 from grok.synthesis.turbospectrum.transitions import should_keep
 
-logger = get_logger(logging.DEBUG if args.verbose else logging.debug)
+#logger = get_logger(logging.DEBUG if args.verbose else logging.INFO)
+logger = get_logger(logging.DEBUG)
 
 with open(args.file, "r") as fp:
     config = yaml.load(fp, Loader=yaml.FullLoader)
 
-name = config["name"]
-logger.debug(f"Running experiment named {name}")
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
-lambdas = lambda_min, lambda_max, lambda_step = (
-    config["wavelengths"]["min"],
-    config["wavelengths"]["max"],
-    config["wavelengths"]["step"]
-)
 
-output_dir = args.output_dir or f"{name}-{lambda_min:.0f}-{lambda_max:.0f}"
+output_dir = args.output_dir or f"."
 output_dir = expand_path(output_dir)
 os.makedirs(output_dir, exist_ok=True)
+logger.info(f"Output directory: {output_dir}")
 
-logger.debug(f"Output directory: {output_dir}")
+pwd = os.path.dirname(args.file)
 
-logger.debug(f"Loading photosphere from {config['photosphere']}")
-photosphere = Photosphere.read(config["photosphere"])
+resolve_path = lambda path: path if os.path.exists(path) else os.path.join(pwd, path)
 
-try:
-    methods = config["spectral_synthesis"].keys()
-except:
-    logger.exception(f"No spectral synthesis codes listed to try in ``spectral_synthesis``")
-    sys.exit(1)
+for comparison in config["comparisons"]:
 
+    name = comparison["name"]
+    logger.debug(f"Running experiment named {name}")
 
-available_methods = ("moog", "korg", "turbospectrum")
-for method in methods:
-    if method not in available_methods:
-        logger.exception(f"Method '{method}' not one of the available methods: {', '.join(available_methods)}")
+    lambdas = lambda_min, lambda_max, lambda_step = (
+        comparison["wavelengths"]["min"],
+        comparison["wavelengths"]["max"],
+        comparison["wavelengths"]["step"]
+    )
+
+    photosphere_path = resolve_path(comparison["photosphere"])
+
+    logger.debug(f"Loading photosphere from {photosphere_path}")
+    photosphere = Photosphere.read(photosphere_path)
+
+    try:
+        methods = comparison["spectral_synthesis"].keys()
+    except:
+        logger.exception(f"No spectral synthesis codes listed to try in ``spectral_synthesis``")
         sys.exit(1)
 
 
-default_consider_reasons = (0, 1, 2, 3, 4)
-for method in methods:
+    for method in methods:
+        if method not in AVAILABLE_METHODS:
+            logger.exception(f"Method '{method}' not one of the available methods: {', '.join(AVAILABLE_METHODS)}")
+            sys.exit(1)
 
-    if method != "korg":
-        logger.warning(f"Skipping method {method}")
-        continue
 
-    options = {}
+    default_consider_reasons = (0, 1, 2, 3, 4)
+    for method in methods:
 
-    if method == "moog":
-        
-        moog_options = config["spectral_synthesis"][method]
-        
-        window = moog_options.get("window", 2)
+        logger.debug(f"Preparing synthesis with {method}")
 
-        # Handle chunking.
-        n_chunks = moog_options.get("n_chunks", None)
-        if n_chunks is not None:
-            options["n_chunks"] = n_chunks
+        options = {}
 
-        # Handle transition restrictions.
-        max_transitions = moog_options.get("max_transitions", None)
-        if max_transitions is not None:
+        if method == "moog":
+            
+            options = comparison["spectral_synthesis"][method]
+
+            window = options.get("window", 2)
+
+            # Handle chunking.
+            n_chunks = options.get("n_chunks", None)
+            if n_chunks is not None:
+                options["n_chunks"] = n_chunks
+
             # Load transitions.
             transitions = []
-            for path in config["transitions"]["paths"]:
-                transitions.extend(Transitions.read(path))
+            for path in comparison["transitions"]["paths"]:
+                transitions.extend(Transitions.read(resolve_path(path)))
 
-            N = len(transitions)
-            if N > max_transitions:
-                logger.debug(f"Input transitions exceeds maximum allowed for {method}: {N} > {max_transitions}")
+            corrected_isotope_path = comparison["transitions"].get("corrected_isotope_path", None)
+            if corrected_isotope_path is not None:
+                corrected_isotope_path = resolve_path(corrected_isotope_path)
+                logger.debug(f"Reading in corrected isotope data from {corrected_isotope_path}")
+                transitions = sorted(transitions, key=lambda t: t.lambda_air.value)
 
-                consider_reasons = moog_options.get("restrict_to_keep_on_reasons", default_consider_reasons)
+                ts_corrections = np.loadtxt(corrected_isotope_path, delimiter=",")
+                assert len(transitions) == len(ts_corrections)
+                for transition, correction in zip(transitions, ts_corrections):
+                    lambda_air, e_lower, log_gf, gamma_rad = correction
+                    assert np.isclose(transition.lambda_air.value, lambda_air)
+                    transition.log_gf = log_gf
+
+            # Exclude strong lines.
+            if "strong_path" in comparison["transitions"]:
+                strong_transitions = Transitions.read(resolve_path(comparison["transitions"]["strong_path"]))
+                transitions = Transitions([t for t in transitions if t not in strong_transitions])
+                options["strong_transitions"] = strong_transitions
+
+            # Handle transition restrictions.
+            max_transitions = options.get("max_transitions", None)
+            if max_transitions is not None:
+
+                logger.info(f"There are {len(transitions)} transitions that were read in")
+                consider_reasons = options.get("restrict_to_keep_on_reasons", default_consider_reasons)
                 in_window = lambda t: (lambda_max + window) >= t.lambda_vacuum.value >= (lambda_min - window)
                 keep = lambda t: should_keep(t, consider_reasons) and in_window(t)
 
-                transitions = list(filter(keep, transitions))
-                N_after = len(transitions)
+                transitions = Transitions(list(filter(keep, transitions)))
+                N = len(transitions)
+                logger.info(f"There are now {N} transitions after considering those within window, and with keep_on_reasons {consider_reasons}")
+
+                if N > max_transitions:
+                    logger.debug(f"Input transitions exceeds maximum allowed for {method}: {N} > {max_transitions}")
+
+                    restrict_to = options.get("restrict_to_strongest_transitions", None)
+                    if restrict_to is not None:
+                        logger.debug(f"Restricting to {restrict_to} strongest transitions")
+                        restrict_to = list(map(tuple, restrict_to))
+                        restrict_on = lambda t: t.species.atoms in restrict_to
+
+                        teff = photosphere.meta["teff"]
+                        def strength(t, teff):
+                            return t.log_gf - t.E_lower.value * (5040/teff) + np.log(t.lambda_air.value)
+
+                        non_restricted, S = 0, []
+                        for t in transitions:
+                            if restrict_on(t):
+                                S.append(strength(t, teff))
+                            else:
+                                non_restricted += 1
+
+                        if non_restricted > max_transitions:
+                            raise RuntimeError(f"Need to restrict on something else: there are {non_restricted} transitions (>{max_transitions})")
+                        
+                        min_S = np.sort(S)[-max_transitions + non_restricted]
+
+                        transitions = Transitions([t for t in transitions if not restrict_on(t) or strength(t, teff) >= min_S])
+                        logger.info(f"Now there are {len(transitions)} after restricting on strength")
+
+        elif method == "sme":
+            input_transitions_format = comparison["transitions"].get("input_transitions_format", "vald")
+            if input_transitions_format == "vald":
+                transitions = list(map(resolve_path, comparison["transitions"]["paths"]))
+
+            else:
+                # Load them in.
+                transitions = []
+                for path in comparison["transitions"]["paths"]:
+                    transitions.extend(Transitions.read(resolve_path(path)))
                 
-                logger.debug(f"There are {N_after} transitions after restricting by window and reasons: {consider_reasons}")
+                corrected_isotope_path = comparison["transitions"].get("corrected_isotope_path", None)
+                if corrected_isotope_path is not None:
+                    corrected_isotope_path = resolve_path(corrected_isotope_path)
+                    logger.debug(f"Reading in corrected isotope data from {corrected_isotope_path}")
+                    transitions = sorted(transitions, key=lambda t: t.lambda_air.value)
 
-                restrict_to = moog_options.get("restrict_to_strongest_transitions", None)
+                    ts_corrections = np.loadtxt(corrected_isotope_path, delimiter=",")
+                    assert len(transitions) == len(ts_corrections)
+                    for transition, correction in zip(transitions, ts_corrections):
+                        lambda_air, e_lower, log_gf, gamma_rad = correction
+                        assert np.isclose(transition.lambda_air.value, lambda_air)
+                        transition.log_gf = log_gf
 
-                if N_after > max_transitions and restrict_to is not None:
-                    logger.debug(f"Restricting {restrict_to} transitions based on strength")
+                transitions = Transitions(transitions)
 
-                    raise NotImplementedError
-        
-    elif method == "korg":
-        # Just supply transitions as paths because Korg will read everything in.
-        transitions = config["transitions"]["paths"]
-        options.update(config["spectral_synthesis"]["korg"])
+                    
+            options.update(comparison["spectral_synthesis"]["sme"] or {})
 
-    logger.debug(f"Executing {method} with options: {options}")
-    try:
-        spectrum, meta = synthesize(
-            photosphere,
-            transitions,
-            method=method,
-            lambdas=lambdas,
-            options=options
-        )
-    except:
-        logger.exception(f"Exception occurred when executing {method} with options: {options}")
-        raise
-    else:
-        logger.debug("Done.")
+        elif method in ("korg", "turbospectrum"):
+            # Just supply transitions as paths
+            transitions = list(map(resolve_path, comparison["transitions"]["paths"]))
+            options.update(comparison["spectral_synthesis"][method] or {})
+
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
+        logger.info(f"Executing {method} with options: {options}")
         try:
-            logger.debug(f"Standard output:\n{meta.pop('stdout')}")
+            spectrum, timing, meta = synthesize(
+                photosphere,
+                transitions,
+                method=method,
+                lambdas=lambdas,
+                options=options
+            )
         except:
-            None
-        try:
-            logger.debug(f"Standard error:\n{meta.pop('stderr')}")
-        except:
-            None
-        logger.debug(f"Metadata: {json.dumps(meta, indent=4)}")
-        
-        # Let's make grok create a figure, which we will upload as an
-        # artefact
-        method_labels = {
-            "moog": "MOOG",
-            "korg": "Korg",
-            "turbospectrum": "TurboSpectrum"
-        }
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        ax.plot(
-            spectrum["wavelength"],
-            spectrum["rectified_flux"],
-            label=method_labels.get(method, method)
-        )
-        ax.legend(frameon=False)
-        ax.set_xlim(lambda_min, lambda_max)
-        figure_path = f"{name}-{lambda_min:.0f}-{lambda_max:.0f}-{method}-rectified.png"
-        fig.savefig(figure_path)
-        logger.debug(f"Created figure {figure_path}")
+            logger.exception(f"Exception occurred when executing {method} with options: {options}")
+            raise
+        else:
+            logger.info("Done.")
+            try:
+                logger.debug(f"Standard output:\n{meta.pop('stdout')}")
+            except:
+                None
+            try:
+                logger.debug(f"Standard error:\n{meta.pop('stderr')}")
+            except:
+                None
+            try:
+                logger.debug(f"Timing for {method}: {json.dumps(timing, indent=4)}")
+            except:
+                logger.exception(f"Could not JSON dump timing array for {method}: {meta}")
+            
+            # Save the outputs.
+            outputs = (spectrum, timing, meta, options)
+            output_path = os.path.join(output_dir, f"{name}-{method}.pkl")
+            with open(output_path, "wb") as fp:
+                pickle.dump(outputs, fp)
+
+            logger.info(f"Outputs of {name} written to {output_path}")

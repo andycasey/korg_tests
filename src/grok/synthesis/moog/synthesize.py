@@ -6,11 +6,14 @@ from collections import OrderedDict
 from pkg_resources import resource_stream
 from tempfile import mkdtemp
 from time import time
+from astropy import units as u
 
 from grok.transitions import Transitions
 from grok.synthesis.moog.io import parse_summary_synth_output, parse_standard_synth_output
 from grok.synthesis.utils import get_default_lambdas
 from grok.utils import copy_or_write
+
+from grok.transitions.utils import air_to_vacuum
 
 def moog_synthesize(
         photosphere,
@@ -220,8 +223,7 @@ def moog_synthesize(
             spectrum["rectified_flux"].extend(rectified_flux[:-1])
             meta["dir"] = dir
 
-        meta["timing"] = dict(process=wallclock_time)
-        return (spectrum, meta)
+        timing = dict(process=wallclock_time)
 
     else:
 
@@ -259,9 +261,12 @@ def moog_synthesize(
         ])
 
         meta["dir"] = dir
-        meta["wallclock_time"] = t_moogsilent
         meta.update(
             parse_standard_synth_output(_path(kwds["standard_out"]))
         )
-        return (spectrum, meta)
+        timing = dict(process=t_moogsilent)
+    
+    # Fix spectrum to be in vacuum wavelengths
+    spectrum["wavelength"] = air_to_vacuum(spectrum["wavelength"] * u.Angstrom).value
+    return (spectrum, timing, meta)
 

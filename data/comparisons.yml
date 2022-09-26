@@ -1,0 +1,163 @@
+common:
+  stars: 
+    sun: &sun
+      photosphere: photospheres/marcs_mod/sun.mod
+    arcturus: &arcturus
+      photosphere: data/photospheres/marcs_mod/s4250_g+1.5_m1.0_t02_st_z-0.50_a+0.20_c+0.00_n+0.00_o+0.20_r+0.00_s+0.00.mod.gz
+    hd49933: &hd49933
+      photosphere: data/photospheres/marcs_mod/p6250_g+4.0_m0.0_t02_st_z-0.50_a+0.20_c+0.00_n+0.00_o+0.20_r+0.00_s+0.00.mod.gz
+    hd122563: 
+      photosphere: data/photospheres/marcs_mod/s4500_g+1.5_m1.0_t02_st_z-2.50_a+0.40_c+0.00_n+0.00_o+0.40_r+0.00_s+0.00.mod.gz
+
+  regions: 
+    _3660: &3660_3680
+      transitions:
+        paths: 
+          - transitions/all-3660-3680.vald
+        input_transitions_format: vald
+      wavelengths: # vacuum
+        min: 3660
+        max: 3680
+        step: 0.01
+
+    _3930: &3930_3950
+      transitions:
+        paths: 
+          - transitions/all-3930-3950.vald
+        strong_path:   data/transitions/strong-3930-3950.vald # only relevant for moog
+        input_transitions_format: vald
+      wavelengths: # vacuum
+        min: 3930
+        max: 3950
+        step: 0.01
+
+    _5160: &5160_5190
+      transitions:
+        paths: 
+          - transitions/all-5160-5176.vald
+          - transitions/all-5176-5190.vald
+        strong_path: data/transitions/strong-5160-5190.vald # only relevant for moog
+        input_transitions_format: vald
+      wavelengths: # vacuum
+        min: 5160
+        max: 5190
+        step: 0.01
+
+    _6540: &6540_6578
+      transitions:
+        paths: 
+        - data/transitions/all-6540-6559.vald
+        - data/transitions/all-6559-6578.vald
+        input_transitions_format: vald
+      wavelengths: # vacuum
+        min: 6540
+        max: 6578
+        step: 0.01
+
+    _15000: &15000_15500
+      transitions:
+        paths: 
+        - data/transitions/turbospec.20180901.atoms
+        - data/transitions/turbospec.20180901.molec
+        strong_path: data/transitions/strong-15000-15500.atoms # only relevant for moog
+        corrected_isotope_path: data/transitions/turbospectrum_sorted_corrected.list # only for moog
+        input_transitions_format: turbospectrum
+      wavelengths: 
+        min: 15000
+        max: 15500
+        step: 0.01
+
+  spectral_synthesis: &common_options
+    sme: &sme_options
+      hydrogen_lines: true
+    korg: &korg_options
+      hydrogen_lines: true
+    turbospectrum: &turbospectrum_options
+      hydrogen_lines: true
+      skip_irrelevant_transitions: true
+      update_missing_data: true
+    moog: &moog_options
+      window: 2 # rename to opacity_contribution
+      max_transitions: 10000
+      n_chunks: 2 
+      restrict_to_keep_on_reasons:
+        - 0
+        - 1
+        - 2
+      restrict_to_strongest_transitions:
+        - [Ti, O]
+
+
+#  - name: Sol_3660_3680
+#    << : *sun
+#    << : *3660_3680
+#    spectral_synthesis:
+#      *common_options
+#
+#  - name: Sol_3930_3950
+#    << : *sun
+#    << : *3930_3950
+#    spectral_synthesis:
+#      *common_options
+#
+#  - name: Sol_5160_5175
+#    << : *sun
+#    << : *5160_5190
+#    spectral_synthesis:
+#      *common_options
+#    
+#  - name: Sol_6540_6578
+#    << : *sun
+#    << : *6540_6578
+#    spectral_synthesis:
+#      << : *common_options
+#      moog:
+#        << : *moog_options
+#        max_transitions: 15000
+#
+#  - name: Sol_15000_15500
+#    << : *sun
+#    << : *15000_15500
+#    spectral_synthesis:
+#      << : *common_options
+#      moog:
+#        << : *moog_options
+#        max_transitions: 100000
+#        n_chunks: 20
+comparisons:
+  - name: Arcturus_3660_3680
+    << : *arcturus
+    << : *3660_3680
+    spectral_synthesis:
+      *common_options
+
+  - name: Arcturus_3930_3950
+    << : *arcturus
+    << : *3930_3950
+    spectral_synthesis:
+      *common_options
+
+  - name: Arcturus_5160_5175
+    << : *arcturus
+    << : *5160_5190
+    spectral_synthesis:
+      *common_options
+    
+  - name: Arcturus_6540_6578
+    << : *arcturus
+    << : *6540_6578
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 15000
+
+  - name: Arcturus_15000_15500
+    << : *arcturus
+    << : *15000_15500
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 100000
+        n_chunks: 20

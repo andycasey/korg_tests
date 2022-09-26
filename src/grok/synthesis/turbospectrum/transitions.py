@@ -45,7 +45,7 @@ _ionization_potential_p2 = [
 ]
 
 
-def should_keep(transition, return_reason=False, consider_reasons=(0, 1, 2, 3, 4)):
+def should_keep(transition, consider_reasons=(0, 1, 2, 3, 4), return_reason=False):
     """
     Returns a boolean flag whether a transition should be excluded (False) or included (True)
     from Turbospectrum.

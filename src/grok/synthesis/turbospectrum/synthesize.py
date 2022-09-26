@@ -5,8 +5,14 @@ from collections import OrderedDict
 from pkg_resources import resource_stream
 from time import time
 
+from astropy import units as u
+from grok.transitions import Transitions
 from grok.synthesis.utils import get_default_lambdas
 from grok.utils import copy_or_write
+
+from grok.transitions.utils import air_to_vacuum
+
+is_hydrogen_line = lambda t: t.species.atoms == ("H", )
 
 def turbospectrum_bsyn(
         photosphere,
@@ -17,8 +23,8 @@ def turbospectrum_bsyn(
         opacities=None,
         verbose=False,
         dir=None,
-        hydrogen_lines=False,
-        transition_format="turbospectrum",
+        input_transition_format=None,
+        hydrogen_lines=True,
         skip_irrelevant_transitions=True,
         update_missing_data=True,
         **kwargs
@@ -70,28 +76,30 @@ def turbospectrum_bsyn(
         )
 
     # Turbospectrum allows for transitions to be written into multiple different files.
-    # TODO: Need to find out if that's ever a legitamite use case. Otherwise let's merge
-    #       all to one file.
     T = 1
-    kwds = dict(
-        format=transition_format,
-        skip_irrelevant_transitions=skip_irrelevant_transitions,
-        update_missing_data=update_missing_data
-    )
     if isinstance(transitions[0], str):
         transition_paths_formatted = []
         for T, path in enumerate(transitions, start=1):
-            copy_or_write(
-                path,
-                _path(transition_basename_format.format(i=T)),
-                **kwds
+            if input_transition_format == "turbospectrum":    
+                copy_or_write(
+                    path,
+                    _path(transition_basename_format.format(i=T)),
+                )
+            else:
+                _transitions = Transitions.read(path, format=input_transition_format)
+                _transitions = Transitions([t for t in _transitions if t.species.atoms != ("H", )])
+                _transitions.write(
+                    _path(transition_basename_format.format(i=T)), 
+                    format="turbospectrum",
+                    skip_irrelevant_transitions=skip_irrelevant_transitions,
+                    update_missing_data=update_missing_data,
             )
+            
             transition_paths_formatted.append(transition_basename_format.format(i=T))
     else:
         copy_or_write(
             transitions,
             _path(transition_basename_format.format(i=0)),
-            **kwds
         )
 
         transition_paths_formatted = [transition_basename_format.format(i=i) for i in range(T)]
@@ -189,14 +197,15 @@ def turbospectrum_bsyn(
     )
     t_bsyn_lu = time() - t_init
     if process.returncode != 0:
-        raise RuntimeError(process.stderr)
+        raise RuntimeError(f"In {dir}: {process.stderr}")
 
     # Load the spectrum from the result file.
     data = np.loadtxt(_path(result_basename))
 
     wavelength, rectified_flux, flux = data.T
+    # convert to vacuum wavelengths
     result = OrderedDict([
-        ("wavelength", wavelength),
+        ("wavelength", air_to_vacuum(wavelength * u.Angstrom).value),
         ("wavelength_unit", "Angstrom"),
         ("rectified_flux", rectified_flux),
         ("flux", flux),
@@ -205,8 +214,11 @@ def turbospectrum_bsyn(
 
     meta = dict(
         dir=dir,
-        timing=dict(process=t_bsyn_lu + t_babsma_lu),
         # TODO: lots of stuff..
     )
-
-    return (result, meta)
+    timing = dict(
+        process=t_bsyn_lu + t_babsma_lu,
+        t_bsyn_lu=t_bsyn_lu,
+        t_babsma_lu=t_babsma_lu
+    )
+    return (result, timing, meta)
