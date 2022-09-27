@@ -68,6 +68,26 @@ common:
         max: 15500
         step: 0.01
 
+    continuum: &continuum
+      transitions:
+        paths:
+        - data/transitions/fake-line.vald
+        input_transitions_format: vald
+      wavelengths:
+        min: 2000
+        max: 10000
+        step: 1
+        
+    continuum: &continuum_moog
+      transitions:
+        paths:
+        - data/transitions/fake-lines-moog.vald
+        input_transitions_format: vald
+      wavelengths:
+        min: 2000
+        max: 10000
+        step: 1        
+
   spectral_synthesis: &common_options
     sme: &sme_options
       hydrogen_lines: true
@@ -92,6 +112,116 @@ common:
 
 
 comparisons:
+  # Continuum only
+  - name: Sol_continuum
+    << : *sun
+    << : *continuum
+    spectral_synthesis:
+      korg:
+        << : *korg_options
+      sme:
+        << : *sme_options
+      turbospectrum:
+        << : *turbospectrum_options
+  
+  - name: Sol_continuum
+    << : *sun
+    << : *continuum_moog
+    spectral_synthesis:
+      moog:
+        << : *moog_options
+
+  - name: Arcturus_continuum
+    << : *arcturus
+    << : *continuum
+    spectral_synthesis:
+      korg:
+        << : *korg_options
+      sme:
+        << : *sme_options
+      turbospectrum:
+        << : *turbospectrum_options
+  
+  - name: Arcturus_continuum
+    << : *arcturus
+    << : *continuum_moog
+    spectral_synthesis:
+      moog:
+        << : *moog_options
+
+  - name: HD49933_continuum
+    << : *hd49933
+    << : *continuum
+    spectral_synthesis:
+      korg:
+        << : *korg_options
+      sme:
+        << : *sme_options
+      turbospectrum:
+        << : *turbospectrum_options
+  
+  - name: HD49933_continuum
+    << : *hd49933
+    << : *continuum_moog
+    spectral_synthesis:
+      moog:
+        << : *moog_options
+
+  - name: HD122563_continuum
+    << : *hd122563
+    << : *continuum
+    spectral_synthesis:
+      korg:
+        << : *korg_options
+      sme:
+        << : *sme_options
+      turbospectrum:
+        << : *turbospectrum_options
+  
+  - name: HD122563_continuum
+    << : *hd122563
+    << : *continuum_moog
+    spectral_synthesis:
+      moog:
+        << : *moog_options
+
+  # Sun
+  - name: Sol_3660_3680
+    << : *sun
+    << : *3660_3680
+    spectral_synthesis:
+      *common_options
+
+  - name: Sol_3930_3950
+    << : *sun
+    << : *3930_3950
+    spectral_synthesis:
+      *common_options
+
+  - name: Sol_5160_5190
+    << : *sun
+    << : *5160_5190
+    spectral_synthesis:
+      *common_options
+    
+  - name: Sol_6540_6578
+    << : *sun
+    << : *6540_6578
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 15000
+
+  - name: Sol_15000_15500
+    << : *sun
+    << : *15000_15500
+    spectral_synthesis:
+      << : *common_options
+      moog:
+        << : *moog_options
+        max_transitions: 100000
+        n_chunks: 20          
 
   # Arcturus
   - name: Arcturus_3660_3680
@@ -207,40 +337,3 @@ comparisons:
         << : *moog_options
         max_transitions: 100000
         n_chunks: 20    
-
-  - name: Sol_3660_3680
-    << : *sun
-    << : *3660_3680
-    spectral_synthesis:
-      *common_options
-
-  - name: Sol_3930_3950
-    << : *sun
-    << : *3930_3950
-    spectral_synthesis:
-      *common_options
-
-  - name: Sol_5160_5190
-    << : *sun
-    << : *5160_5190
-    spectral_synthesis:
-      *common_options
-    
-  - name: Sol_6540_6578
-    << : *sun
-    << : *6540_6578
-    spectral_synthesis:
-      << : *common_options
-      moog:
-        << : *moog_options
-        max_transitions: 15000
-
-  - name: Sol_15000_15500
-    << : *sun
-    << : *15000_15500
-    spectral_synthesis:
-      << : *common_options
-      moog:
-        << : *moog_options
-        max_transitions: 100000
-        n_chunks: 20        

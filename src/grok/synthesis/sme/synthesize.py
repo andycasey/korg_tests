@@ -108,7 +108,8 @@ def sme_synthesize(
 
     spectrum = OrderedDict([
         ("wavelength", sme.wave[0]),
-        ("wavelength_unit", "Angstrom"),
+        #("wavelength_unit", "Angstrom"),
+        #("continuum_wavelength", sme.wave[0]),
         ("continuum", sme.cont[0]),
         ("flux", sme.synth[0] * sme.cont[0]),
         ("rectified_flux", sme.synth[0])

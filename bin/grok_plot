@@ -1,0 +1,205 @@
+#!python
+import os
+import h5py as h5
+import matplotlib.pyplot as plt
+from glob import glob
+import pickle
+import numpy as np
+
+from matplotlib.gridspec import GridSpec
+
+
+
+plot_kwds = {
+    "korg": dict(c="k", label="Korg"),
+    "turbospectrum": dict(c="tab:orange", ls="-", label="TurboSpectrum"),
+    "moog": dict(c="tab:green", ls="-", label="MOOG"),
+    "sme": dict(c="tab:blue", ls="-", label="SME")
+}
+
+def get_wavelength_key(group, possible_keys):
+    if isinstance(possible_keys, (tuple, list)):
+        for use_key in possible_keys:
+            try:
+                group[use_key]
+            except KeyError:
+                continue
+            else:
+                break
+        else:
+            raise KeyError(f"None of the keys {possible_keys} found in {group}")
+    else:
+        use_key = possible_keys    
+    return use_key
+
+def compare_spectra(
+    output,
+    name, 
+    ax, 
+    ax_diff, 
+    wavelength_key="wavelength", 
+    flux_key="rectified_flux",
+    xlim=None,
+    ylim=None,
+    diff_ylim=None,
+    scale_flux=1,
+):
+
+    
+    for method, group in output[f"{name}"].items():
+        
+        use_key = get_wavelength_key(group, wavelength_key)
+
+        if xlim is not None:
+            mask = (
+                (xlim[1] >= group[use_key][:]) *
+                (group[use_key][:] >= xlim[0])
+            )
+        kwds = plot_kwds[method]
+        scale = scale_flux.get(method, 1) if isinstance(scale_flux, dict) else scale_flux
+        ax.plot(
+            group[use_key][:][mask],
+            group[flux_key][:][mask] / scale,
+            **kwds
+        )
+    
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+
+    try:
+        reference = output[f"{name}/korg/"]
+    except KeyError:
+        None
+    else:
+        
+        reference_wavelength_key = get_wavelength_key(group, wavelength_key)
+
+        if xlim is not None:
+            mask = (
+                (xlim[1] >= reference[reference_wavelength_key][:]) *
+                (reference[reference_wavelength_key][:] >= xlim[0])
+            )        
+        else:
+            mask = np.ones_like(reference[reference_wavelength_key][:], dtype=bool)
+
+        for method, group in output[f"{name}"].items():
+            if method == "korg": continue
+
+            scale = scale_flux.get(method, 1) if isinstance(scale_flux, dict) else scale_flux
+            use_key = get_wavelength_key(group, wavelength_key)
+
+            kwds = plot_kwds[method]
+            flux = np.interp(
+                np.array(reference[reference_wavelength_key][:])[mask],
+                group[use_key][:],
+                np.array(group[flux_key][:]) / scale,
+                left=np.nan,
+                right=np.nan
+            )
+
+            chi2 = (flux - reference[flux_key][:][mask] / scale)**2
+            r_chi2 = np.nansum(chi2)/np.sum(np.isfinite(chi2))
+
+            print(f"{reference[reference_wavelength_key][0]:.0f}: {method} {r_chi2:.2e}")
+            ax_diff.plot(
+                np.array(reference[reference_wavelength_key][:])[mask],
+                np.array(reference[flux_key][:])[mask]/scale - flux,
+                **kwds
+            )
+
+    ax_diff.set_xlim(xlim)
+    ax_diff.set_ylim(diff_ylim)
+    ax_diff.set_xticks([])
+
+    return None
+
+
+nrows, ncols = (6, 2)
+gs = GridSpec(
+    nrows=nrows,
+    ncols=ncols,
+    height_ratios=[1, 3, 1, 3, 1, 3][:nrows]
+)
+
+
+output = h5.File("20220927.h5", "r")
+
+
+for name in ("HD49933", "Arcturus", "Sol", "HD122563"):
+
+    figure_path = f"20220927-{name}.png"
+
+    fig = plt.figure(figsize=(10, 10))
+    axes = [fig.add_subplot(gs[i]) for i in range(nrows*ncols)]
+
+    compare_spectra(
+        output, f"{name}_3660_3680",
+        axes[2], axes[0],
+        xlim=(3660, 3670),
+        ylim=(0, 1.1),   
+    )
+
+    compare_spectra(
+        output, f"{name}_5160_5190",
+        axes[6], axes[4],
+        xlim=(5160, 5175),
+        ylim=(0, 1.1),
+    )
+
+
+    compare_spectra(
+        output, f"{name}_15000_15500",
+        axes[10], axes[8],
+        xlim=(15000, 15100),
+        ylim=(0, 1.1),
+    )
+
+    compare_spectra(
+        output, f"{name}_3930_3950",
+        axes[3], axes[1],
+        xlim=(3935, 3950),
+        ylim=(0, 1.1),
+
+    )
+    compare_spectra(
+        output, f"{name}_6540_6578",
+        axes[7], axes[5],
+        xlim=(6540, 6578),
+        ylim=(0, 1.1),
+    )
+
+    compare_spectra(
+        output, f"{name}_continuum",
+        axes[11], axes[9],
+        xlim=(2000, 10000),
+        wavelength_key=("continuum_wavelength", "wavelength"),
+        flux_key="continuum",
+        scale_flux={
+            "moog": 1e14/np.pi,
+            "turbospectrum": 1e6,
+            "korg": 1e14,
+            "sme": 1e6
+        }
+    )
+
+    axes[10].legend(loc="lower right", frameon=False)
+    fig.savefig(figure_path, dpi=300)
+
+
+
+"""
+from glob import glob
+timings = {}
+for path in glob("20220926/*.pkl"):
+    with open(path, "rb") as fp:
+        spectrum, timing, meta, options = pickle.load(fp)
+    
+    method = path.split("-")[-1].split(".")[0]
+    timings.setdefault(method, [])
+    timings[method].append(timing["t_synthesis"])
+
+for key, v in timings.items():
+    relative_to_korg = np.sum(v) / np.sum(timings["korg"])
+    print(f"{key: >15}: {np.sum(v): >6.1f} {np.max(v): >6.1f} {relative_to_korg: >6.1f}")
+"""
+

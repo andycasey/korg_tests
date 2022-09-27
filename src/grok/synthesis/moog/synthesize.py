@@ -156,8 +156,10 @@ def moog_synthesize(
         t_synthesis = 0
         spectrum = OrderedDict([
             ("wavelength", []),
-            ("wavelength_unit", "Angstrom"),
-            ("rectified_flux", [])
+            #("wavelength_unit", "Angstrom"),
+            ("rectified_flux", []),
+            ("continuum", []),
+            ("continuum_wavelength", []),
         ])
         for chunk in range(n_chunks):
             chunk_lambda_min = lambda_min + chunk_size * chunk
@@ -218,12 +220,16 @@ def moog_synthesize(
             # Copy outputs.
             output = parse_summary_synth_output(_path(kwds["summary_out"]))
 
+            parsed_stdout = parse_standard_synth_output(_path(kwds["standard_out"]))
+
             # Remove this symbolic link to batch.par
             os.unlink(control_path)
 
             wavelength, rectified_flux, meta = output[0]
             spectrum["wavelength"].extend(wavelength[:-1]) # the last pixel gets synthesized next time.
             spectrum["rectified_flux"].extend(rectified_flux[:-1])
+            spectrum["continuum_wavelength"].extend(air_to_vacuum(parsed_stdout["continuum_lambda_air"] * u.Angstrom).value)
+            spectrum["continuum"].extend(parsed_stdout["continuum_flux"])
             meta["dir"] = dir
 
         timing = dict(t_synthesis=t_synthesis)
@@ -257,19 +263,23 @@ def moog_synthesize(
         output = parse_summary_synth_output(_path(kwds["summary_out"]))
         wavelength, rectified_flux, meta = output[0]
 
+        # Get the continuum from this output
+        parsed_stdout = parse_standard_synth_output(_path(kwds["standard_out"]))
+
         spectrum = OrderedDict([
             ("wavelength", wavelength),
-            ("wavelength_unit", "Angstrom"),
+            #("wavelength_unit", "Angstrom"),
             ("rectified_flux", rectified_flux),
+            ("continuum", parsed_stdout["continuum_flux"]),
+            ("continuum_wavelength", air_to_vacuum(parsed_stdout["continuum_lambda_air"] * u.Angstrom).value),
         ])
 
         meta["dir"] = dir
-        meta.update(
-            parse_standard_synth_output(_path(kwds["standard_out"]))
-        )
         timing = dict(t_synthesis=t_synthesis)
     
     # Fix spectrum to be in vacuum wavelengths
     spectrum["wavelength"] = air_to_vacuum(spectrum["wavelength"] * u.Angstrom).value
+    for k in ("rectified_flux", "continuum", "continuum_wavelength", "wavelength"):
+        spectrum[k] = np.array(spectrum[k])
     return (spectrum, timing, meta)
 

@@ -206,10 +206,12 @@ def turbospectrum_bsyn(
     # convert to vacuum wavelengths
     result = OrderedDict([
         ("wavelength", air_to_vacuum(wavelength * u.Angstrom).value),
-        ("wavelength_unit", "Angstrom"),
+        #("wavelength_unit", "Angstrom"),
         ("rectified_flux", rectified_flux),
         ("flux", flux),
-        ("flux_unit", "1e-17 erg / (Angstrom cm2 s)"),
+        #("continuum_wavelength", air_to_vacuum(wavelength * u.Angstrom).value),
+        ("continuum", flux / rectified_flux),
+        #("flux_unit", "1e-17 erg / (Angstrom cm2 s)"),
     ])
 
     meta = dict(

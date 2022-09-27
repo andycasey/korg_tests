@@ -27,10 +27,7 @@ def synthesize(
     julia_script_basename = "grok.jl"
     photosphere_path_basename = "atmosphere"
 
-    if lambdas is not None:
-        lambda_vacuum_min, lambda_vacuum_max, lambda_delta = lambdas
-    else:
-        lambda_vacuum_min, lambda_vacuum_max, lambda_delta = get_default_lambdas(transitions)
+    lambda_vacuum_min, lambda_vacuum_max, lambda_delta = lambdas
 
     _path = lambda basename: os.path.join(dir or "", basename)
 
@@ -157,9 +154,10 @@ def synthesize(
 
     result = OrderedDict([
         ("wavelength", wavelength),
-        ("wavelength_unit", "Angstrom"),
+        #("wavelength_unit", "Angstrom"),
         ("flux", flux),
-        ("flux_unit", "erg / (Angstrom cm2 s"),
+        #("flux_unit", "erg / (Angstrom cm2 s"),
+        #("continuum_wavelength", wavelength),
         ("continuum", continuum),
         ("rectified_flux", flux / continuum),
     ])
