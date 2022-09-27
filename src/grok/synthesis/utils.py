@@ -1,6 +1,6 @@
 
 def get_default_lambdas(transitions):
-
+    raise DeprecatedError 
     if not isinstance(transitions, (tuple, list)):
         transitions = (transitions, )
     

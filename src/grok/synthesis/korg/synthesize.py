@@ -28,9 +28,9 @@ def synthesize(
     photosphere_path_basename = "atmosphere"
 
     if lambdas is not None:
-        lambda_air_min, lambda_air_max, lambda_delta = lambdas
+        lambda_vacuum_min, lambda_vacuum_max, lambda_delta = lambdas
     else:
-        lambda_air_min, lambda_air_max, lambda_delta = get_default_lambdas(transitions)
+        lambda_vacuum_min, lambda_vacuum_max, lambda_delta = get_default_lambdas(transitions)
 
     _path = lambda basename: os.path.join(dir or "", basename)
 
@@ -41,8 +41,8 @@ def synthesize(
         format=kwargs.get("photosphere_format", "marcs")
     )
 
-    lambda_vacuum_min = np.round(air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value, 2) - 0.01
-    lambda_vacuum_max = np.round(air_to_vacuum(lambda_air_max * u.Angstrom).to("Angstrom").value, 2) + 0.01
+    #lambda_vacuum_min = np.round(air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value, 2) - 0.01
+    #lambda_vacuum_max = np.round(air_to_vacuum(lambda_vacuum_max * u.Angstrom).to("Angstrom").value, 2) + 0.01
 
     kwds = dict(
         # Korg works in vacuum wavelengths.

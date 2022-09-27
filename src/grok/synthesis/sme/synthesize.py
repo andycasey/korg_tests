@@ -6,7 +6,7 @@ from pysme.linelist.vald import ValdFile
 from pysme.sme import SME_Structure
 from pysme.atmosphere.atmosphere import Atmosphere
 from pysme.abund import Abund
-from pysme.synthesize import synthesize_spectrum
+from pysme.synthesize import Synthesizer
 from time import time
 from collections import OrderedDict
 from typing import Union, Tuple, List
@@ -101,19 +101,41 @@ def sme_synthesize(
     sme.normalize_by_continuum = True
     
     # TODO: Where to start timing from...?
+    synth = Synthesizer()
     t_init = time()
-    sme = synthesize_spectrum(sme)
+    sme = synth.synthesize_spectrum(sme, "all")
     t_synthesis = time() - t_init
 
     spectrum = OrderedDict([
         ("wavelength", sme.wave[0]),
         ("wavelength_unit", "Angstrom"),
+        ("continuum", sme.cont[0]),
+        ("flux", sme.synth[0] * sme.cont[0]),
         ("rectified_flux", sme.synth[0])
     ])
+    # Get additional info
+    dll = synth.get_dll(None)
+    switches = (
+        "COPSTD", "COPRED", "COPBLU", "AHYD", "AH2P", "AHMIN", "SIGH", "AHE1", "AHE2",
+        "AHEMIN", "SIGHE", "AHOT", "SIGEL", "SIGH2"
+    )
+    # Trying to get ACOOL or ALUKE either fails or seg faults
+    """
+    ipdb> dll.GetOpacity("ALUKE", "O1")
+    *** TypeError: 'species ' is an invalid keyword argument for this function
+    ipdb> dll.GetOpacity("ALUKE", key="O1")
+    Segmentation fault (core dumped)
+    """
+    opacities = { switch: dll.GetOpacity(switch) for switch in switches }
+
     timing = dict(
         t_synthesis=t_synthesis, 
     )
-    meta = dict(sme_structure=sme.to_dict())
+    meta = dict(
+        sme_structure=sme,
+        opacities=opacities,
+
+    )
     return (spectrum, timing, meta)
 
 

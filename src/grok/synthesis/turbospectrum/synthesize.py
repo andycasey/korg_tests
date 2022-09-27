@@ -10,7 +10,7 @@ from grok.transitions import Transitions
 from grok.synthesis.utils import get_default_lambdas
 from grok.utils import copy_or_write
 
-from grok.transitions.utils import air_to_vacuum
+from grok.transitions.utils import air_to_vacuum, vacuum_to_air
 
 is_hydrogen_line = lambda t: t.species.atoms == ("H", )
 
@@ -56,11 +56,11 @@ def turbospectrum_bsyn(
         The directory to execute Turbospectrum from.
     """
 
-    if lambdas is not None:
-        lambda_min, lambda_max, lambda_delta = lambdas
-    else:
-        lambda_min, lambda_max, lambda_delta = get_default_lambdas(transitions)
-
+    # These are vacuum wavelengths, but Turbospectrum works in air
+    lambda_vacuum_min, lambda_vacuum_max, lambda_delta = lambdas
+    lambda_min = vacuum_to_air(lambda_vacuum_min * u.Angstrom).value
+    lambda_max = vacuum_to_air(lambda_vacuum_max * u.Angstrom).value
+    
     _path = lambda basename: os.path.join(dir or "", basename)
 
 

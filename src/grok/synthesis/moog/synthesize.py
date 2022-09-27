@@ -13,7 +13,7 @@ from grok.synthesis.moog.io import parse_summary_synth_output, parse_standard_sy
 from grok.synthesis.utils import get_default_lambdas
 from grok.utils import copy_or_write
 
-from grok.transitions.utils import air_to_vacuum
+from grok.transitions.utils import air_to_vacuum, vacuum_to_air
 
 def moog_synthesize(
         photosphere,
@@ -40,10 +40,13 @@ def moog_synthesize(
         **kwargs
     ):
 
-    if lambdas is not None:
-        lambda_min, lambda_max, lambda_delta = lambdas
-    else:
-        lambda_min, lambda_max, lambda_delta = get_default_lambdas(transitions)
+    #if lambdas is not None:
+    # vacuum wavelengths given, but MOOG works in air wavelengths
+    lambda_vacuum_min, lambda_vacuum_max, lambda_delta = lambdas
+    lambda_min = vacuum_to_air(lambda_vacuum_min * u.Angstrom).value
+    lambda_max = vacuum_to_air(lambda_vacuum_max * u.Angstrom).value
+    
+    
 
     N = 1 # number of syntheses to do
 
