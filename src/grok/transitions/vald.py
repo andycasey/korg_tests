@@ -149,6 +149,8 @@ def read_extract_stellar_long_output(path):
         dtype = int if k.startswith("n_") else float
         meta[k] = dtype(meta[k])
 
+    lambda_key = "lambda_vacuum" if "WL_vac" in lines[1] else "lambda_air"
+
     names = (
         "species",
         "lambda_air", # TODO: Need to figure out if it's lambda_air or lambda_vac based on header
