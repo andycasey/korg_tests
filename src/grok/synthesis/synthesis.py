@@ -2,17 +2,18 @@ from tempfile import mkdtemp
 
 AVAILABLE_METHODS = ("moog", "turbospectrum", "korg", "sme")
 
+
 def synthesize(
-        photosphere,
-        transitions,
-        method,
-        lambdas=None,
-        abundances=None,
-        options=None,
-        verbose=False,
-        mkdtemp_kwargs=None,
-        **kwargs
-    ):
+    photosphere,
+    transitions,
+    method,
+    lambdas=None,
+    abundances=None,
+    options=None,
+    verbose=False,
+    mkdtemp_kwargs=None,
+    **kwargs,
+):
     """
     Synthesize a stellar spectrum.
 
@@ -46,13 +47,17 @@ def synthesize(
     if method == "moog":
         from grok.synthesis.moog.synthesize import moog_synthesize as _synthesize
     elif method == "turbospectrum":
-        from grok.synthesis.turbospectrum.synthesize import turbospectrum_bsyn as _synthesize
+        from grok.synthesis.turbospectrum.synthesize import (
+            turbospectrum_bsyn as _synthesize,
+        )
     elif method == "korg":
         from grok.synthesis.korg.synthesize import synthesize as _synthesize
     elif method == "sme":
         from grok.synthesis.sme.synthesize import sme_synthesize as _synthesize
     else:
-        raise ValueError(f"Method '{method}' unknown. Available methods: {', '.join(list(AVAILABLE_METHODS))}")
+        raise ValueError(
+            f"Method '{method}' unknown. Available methods: {', '.join(list(AVAILABLE_METHODS))}"
+        )
 
     options = options or dict()
     dir = mkdtemp(**(mkdtemp_kwargs or dict()))
@@ -66,7 +71,7 @@ def synthesize(
         abundances=abundances,
         verbose=verbose,
         dir=dir,
-        **options
+        **options,
     )
 
     # TODO: Clean up temporary directory?

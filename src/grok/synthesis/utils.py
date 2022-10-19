@@ -1,9 +1,8 @@
-
 def get_default_lambdas(transitions):
-    raise DeprecatedError 
+    raise DeprecatedError
     if not isinstance(transitions, (tuple, list)):
-        transitions = (transitions, )
-    
+        transitions = (transitions,)
+
     lambda_min, lambda_max = (1e10, 0)
     for each in transitions:
         lambda_min = min(lambda_min, each["wavelength"].min())
