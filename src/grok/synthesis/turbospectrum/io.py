@@ -39,9 +39,7 @@ def write_photosphere_for_turbospectrum(photosphere, path):
 
     # TODO: Turbospectrum describes this format as 'KURUCZ', but it looks like an ATLAS-style format to me.
     # NOTE: Turbospectrum does not read the abundance information from the photosphere. It reads it from the control file.
-    output = (
-        f"'KURUCZ' {photosphere.meta['n_depth']} {photosphere.meta.get('standard_wavelength', 5000):.0f} {photosphere.meta['logg']:.2f} 0 0.\n"
-    )
+    output = f"'KURUCZ' {photosphere.meta['n_depth']} {photosphere.meta.get('standard_wavelength', 5000):.0f} {photosphere.meta['logg']:.2f} 0 0.\n"
 
     # See https://github.com/bertrandplez/Turbospectrum2019/blob/master/source-v19.1/babsma.f#L727
     ross_keys = ("ABROSS", "KappaRoss")
@@ -50,7 +48,7 @@ def write_photosphere_for_turbospectrum(photosphere, path):
             break
     else:
         raise ValueError("Need ABROSS or KappaRoss")
-    
+
     line_format = " {rho_x:.8e} {T: >8.1f} {P:.3e} {XNE:.3e} {ABROSS:.3e} {ACCRAD:.3e} {VTURB:.3e} {FLXCNV:.3e}\n"
 
     for i, line in enumerate(photosphere, start=1):
@@ -63,7 +61,7 @@ def write_photosphere_for_turbospectrum(photosphere, path):
             ABROSS=line[ross_key],
             ACCRAD=line["ACCRAD"] if "ACCRAD" in photosphere.dtype.names else 0,
             VTURB=line["VTURB"] if "VTURB" in photosphere.dtype.names else 0,
-            FLXCNV=line["FLXCNV"] if "FLXCNV" in photosphere.dtype.names else 0
+            FLXCNV=line["FLXCNV"] if "FLXCNV" in photosphere.dtype.names else 0,
         )
 
     with open(path, "w") as fp:
@@ -71,5 +69,6 @@ def write_photosphere_for_turbospectrum(photosphere, path):
     return None
 
 
-
-registry.register_writer("turbospectrum", Photosphere, write_photosphere_for_turbospectrum, force=True)
+registry.register_writer(
+    "turbospectrum", Photosphere, write_photosphere_for_turbospectrum, force=True
+)

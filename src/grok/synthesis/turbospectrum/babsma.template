@@ -11,6 +11,6 @@
 'HELIUM     :'    '{helium_abundance:.2f}'
 'R-PROCESS  :'    '{r_process_abundance:.2f}'
 'S-PROCESS  :'    '{s_process_abundance:.2f}'
-'INDIVIDUAL ABUNDANCES:'   '0'
+'INDIVIDUAL ABUNDANCES:'   '{num_individual_abundances}'{individual_abundances_formatted}
 'XIFIX:' 'T'
 {microturbulence:.3f}

@@ -8,18 +8,13 @@ from time import time
 from astropy import units as u
 
 from grok.synthesis.utils import get_default_lambdas
-from grok.transitions.utils import (air_to_vacuum, vacuum_to_air)
+from grok.transitions.utils import air_to_vacuum, vacuum_to_air
 from grok.utils import copy_or_write
 
 
 def synthesize(
-        photosphere,
-        transitions,
-        lambdas=None,
-        dir=None,
-        hydrogen_lines=True,
-        **kwargs
-    ):
+    photosphere, transitions, lambdas=None, dir=None, hydrogen_lines=True, **kwargs
+):
     """
     Execute synthesis with Korg.
     """
@@ -35,11 +30,11 @@ def synthesize(
     copy_or_write(
         photosphere,
         _path(photosphere_path_basename),
-        format=kwargs.get("photosphere_format", "marcs")
+        format=kwargs.get("photosphere_format", "marcs"),
     )
 
-    #lambda_vacuum_min = np.round(air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value, 2) - 0.01
-    #lambda_vacuum_max = np.round(air_to_vacuum(lambda_vacuum_max * u.Angstrom).to("Angstrom").value, 2) + 0.01
+    # lambda_vacuum_min = np.round(air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value, 2) - 0.01
+    # lambda_vacuum_max = np.round(air_to_vacuum(lambda_vacuum_max * u.Angstrom).to("Angstrom").value, 2) + 0.01
 
     kwds = dict(
         # Korg works in vacuum wavelengths.
@@ -57,21 +52,22 @@ def synthesize(
         microturbulence=photosphere.meta["microturbulence"],
     )
 
-
     # I wish I knew some Julia... eeek!
     if isinstance(transitions, (list, tuple)) and len(transitions) == 2:
 
         # Special case for TS 15000 - 15500
         if any(os.path.basename(path).startswith("turbospec.") for path in transitions):
             template_path = "template_turbospectrum.jl"
-            assert transitions[-1].endswith(".molec"), "Put the molecule transition file last"
+            assert transitions[-1].endswith(
+                ".molec"
+            ), "Put the molecule transition file last"
 
             for i, each in enumerate(transitions):
                 basename = f"transitions_{i:.0f}"
                 copy_or_write(
                     each,
                     _path(basename),
-                    format=kwargs.get("transitions_format", "vald.stellar")
+                    format=kwargs.get("transitions_format", "vald.stellar"),
                 )
                 kwds[f"linelist_path_{i}"] = basename
         else:
@@ -82,20 +78,20 @@ def synthesize(
                 copy_or_write(
                     each,
                     _path(basename),
-                    format=kwargs.get("transitions_format", "vald.stellar")
+                    format=kwargs.get("transitions_format", "vald.stellar"),
                 )
                 kwds[f"linelist_path_{i}"] = basename
 
     else:
         if isinstance(transitions, (list, tuple)) and len(transitions) == 1:
-            transitions, = transitions
+            (transitions,) = transitions
 
         template_path = "template.jl"
         transitions_path_basename = "transitions"
         copy_or_write(
             transitions,
             _path(transitions_path_basename),
-            format=kwargs.get("transitions_format", "vald.stellar")
+            format=kwargs.get("transitions_format", "vald.stellar"),
         )
         kwds["linelist_path"] = transitions_path_basename
 
@@ -113,19 +109,16 @@ def synthesize(
     # Execute it in a subprocess like we do for Turbospectrum and MOOG.
     # (I don't know how Julia works, but this could introduce some weird time penalty on Julia. Should check on that.)
     t_init = time()
-    process = subprocess.run([
-            "julia",
-            julia_script_basename
-        ],
+    process = subprocess.run(
+        ["julia", julia_script_basename],
         cwd=dir,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        encoding="utf-8"
+        encoding="utf-8",
     )
     t_subprocess = time() - t_init
     if process.returncode != 0:
         raise RuntimeError(process.stderr)
-
 
     # Write the stdout and stderr.
     with open(_path("stdout"), "w") as fp:
@@ -147,26 +140,26 @@ def synthesize(
         description = description.replace(" ", "_")
         timing[f"t_{description}"] = float(seconds)
 
-
     wavelength, flux = np.loadtxt(_path("spectrum.out")).T
 
     continuum_wavelength, continuum = np.loadtxt(_path("continuum.out")).T
 
-    result = OrderedDict([
-        ("wavelength", wavelength),
-        #("wavelength_unit", "Angstrom"),
-        ("flux", flux),
-        #("flux_unit", "erg / (Angstrom cm2 s"),
-        #("continuum_wavelength", wavelength),
-        ("continuum", continuum),
-        ("rectified_flux", flux / continuum),
-    ])
+    result = OrderedDict(
+        [
+            ("wavelength", wavelength),
+            # ("wavelength_unit", "Angstrom"),
+            ("flux", flux),
+            # ("flux_unit", "erg / (Angstrom cm2 s"),
+            # ("continuum_wavelength", wavelength),
+            ("continuum", continuum),
+            ("rectified_flux", flux / continuum),
+        ]
+    )
 
     # Before:
     # - meta['wallclock_time'] was only showing synthesis time after compilation
     # Now:
     # - meta['timing']['t_synthesis'] is the time spent in synthesis
-
 
     meta = dict(
         dir=dir,
@@ -177,7 +170,10 @@ def synthesize(
         lambda_vacuum_delta=lambda_delta,
     )
     # Parse the version used.
-    match = re.search("Korg v(?P<korg_version_major>\d+)\.(?P<korg_version_minor>\d+)\.(?P<korg_version_micro>\d+)", process.stdout)
+    match = re.search(
+        "Korg v(?P<korg_version_major>\d+)\.(?P<korg_version_minor>\d+)\.(?P<korg_version_micro>\d+)",
+        process.stdout,
+    )
     meta.update(match.groupdict())
 
     return (result, timing, meta)
