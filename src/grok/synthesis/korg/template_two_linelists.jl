@@ -18,7 +18,7 @@ function synthesize(atmosphere_path, linelist_path_0, linelist_path_1, metallici
     println("Timing line list read")
     @time linelist = read_line_list(linelist_path_0, linelist_path_1)
     println("Timing synthesis")
-    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f})
+    @time spectrum = Korg.synthesize(atm, linelist, {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity=metallicity, hydrogen_lines={hydrogen_lines}, vmic={microturbulence:.2f}, abundances={abundances_formatted}, solar_relative={solar_relative})
     println("Done")
     return spectrum
 end
@@ -42,7 +42,7 @@ println("Sold!")
 
 # Now do continuum.
 atm = Korg.read_model_atmosphere("{atmosphere_path}")
-continuum = Korg.synthesize(atm, [], {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity={metallicity:.2f}, hydrogen_lines=false, vmic={microturbulence:.2f})
+continuum = Korg.synthesize(atm, [], {lambda_vacuum_min:.2f}, {lambda_vacuum_max:.2f}; metallicity={metallicity:.2f}, hydrogen_lines=false, vmic={microturbulence:.2f}, abundances={abundances_formatted}, solar_relative={solar_relative})
 open("continuum.out", "w") do fp
     for (wl, flux) in zip(continuum.wavelengths, continuum.flux)
         println(fp, wl, " ", flux)

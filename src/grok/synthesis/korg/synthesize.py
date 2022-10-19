@@ -13,7 +13,7 @@ from grok.utils import copy_or_write
 
 
 def synthesize(
-    photosphere, transitions, lambdas=None, dir=None, hydrogen_lines=True, **kwargs
+    photosphere, transitions, lambdas=None, dir=None, solar_abundances=None, hydrogen_lines=True, **kwargs
 ):
     """
     Execute synthesis with Korg.
@@ -35,7 +35,7 @@ def synthesize(
 
     # lambda_vacuum_min = np.round(air_to_vacuum(lambda_air_min * u.Angstrom).to("Angstrom").value, 2) - 0.01
     # lambda_vacuum_max = np.round(air_to_vacuum(lambda_vacuum_max * u.Angstrom).to("Angstrom").value, 2) + 0.01
-
+    
     kwds = dict(
         # Korg works in vacuum wavelengths.
         # TODO: Don't assume units for lambdas.
@@ -50,6 +50,26 @@ def synthesize(
         korg_read_transitions_format=kwargs.get("korg_read_transitions_format", "vald"),
         hydrogen_lines=str(hydrogen_lines).lower(),
         microturbulence=photosphere.meta["microturbulence"],
+    )
+    if solar_abundances is None:
+        solar_abundances_formatted = 'Dict()'
+        solar_relative = 'true'
+    else:
+        solar_relative = 'false'
+        solar_abundances_formatted = 'Dict('
+        f = []
+        monh = photosphere.meta["m_h"]
+        for element, v in solar_abundances.items():
+            if element in ("H", "He"):
+                f.append(f'"{element}"=>{v}')
+            else:
+                f.append(f'"{element}"=>{v + monh}')
+        solar_abundances_formatted += ', '.join(f)
+        solar_abundances_formatted += ')'
+
+    kwds.update(
+        solar_relative=solar_relative,
+        solar_abundances_formatted=solar_abundances_formatted,
     )
 
     # I wish I knew some Julia... eeek!

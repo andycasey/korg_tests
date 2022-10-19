@@ -52,7 +52,7 @@ pwd = os.path.dirname(args.file)
 
 resolve_path = lambda path: path if os.path.exists(path) else os.path.join(pwd, path)
 
-for comparison in config["comparisons"]:
+for comparison in config["comparisons"][::-1]:
 
     name = comparison["name"]
     logger.debug(f"Running experiment named {name}")
@@ -79,7 +79,6 @@ for comparison in config["comparisons"]:
         if method not in AVAILABLE_METHODS:
             logger.exception(f"Method '{method}' not one of the available methods: {', '.join(AVAILABLE_METHODS)}")
             sys.exit(1)
-
 
     default_consider_reasons = (0, )
     for method in methods:
@@ -250,7 +249,7 @@ for comparison in config["comparisons"]:
                 logger.debug(f"Timing for {method}: {json.dumps(timing, indent=4)}")
             except:
                 logger.exception(f"Could not JSON dump timing array for {method}: {meta}")
-            
+                        
             # Save the outputs.
             try:
                 group = output[name]
@@ -276,8 +275,9 @@ for comparison in config["comparisons"]:
 
             logger.info(f"Outputs of {name} written to {output_path}")
             '''
+            print(f"Directory is {meta.get('dir', None)}")
             # Clean up directory.
-            if "dir" in meta:
+            if meta.get("dir", None) is not None:
                 logger.info(f"Removing directory {meta['dir']}")
                 rmtree(meta["dir"])
 

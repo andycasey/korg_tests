@@ -1,4 +1,98 @@
 common:
+  solar_abundances:
+    asplund2020: &asplund2020
+      H: 12.0
+      He: 10.91
+      Li: 0.96
+      Be: 1.38
+      B: 2.7
+      C: 8.46
+      N: 7.83
+      O: 8.69
+      F: 4.4
+      Ne: 8.06
+      Na: 6.22
+      Mg: 7.55
+      Al: 6.43
+      Si: 7.51
+      P: 5.41
+      S: 7.12
+      Cl: 5.31
+      Ar: 6.38
+      K: 5.07
+      Ca: 6.3
+      Sc: 3.14
+      Ti: 4.97
+      V: 3.9
+      Cr: 5.62
+      Mn: 5.42
+      Fe: 7.46
+      Co: 4.94
+      Ni: 6.2
+      Cu: 4.18
+      Zn: 4.56
+      Ga: 3.02
+      Ge: 3.62
+      As: 2.3
+      Se: 3.34
+      Br: 2.54
+      Kr: 3.12
+      Rb: 2.32
+      Sr: 2.83
+      Y: 2.21
+      Zr: 2.59
+      Nb: 1.47
+      Mo: 1.88
+      Tc: -5.0
+      Ru: 1.75
+      Rh: 0.78
+      Pd: 1.57
+      Ag: 0.96
+      Cd: 1.71
+      In: 0.8
+      Sn: 2.02
+      Sb: 1.01
+      Te: 2.18
+      I: 1.55
+      Xe: 2.22
+      Cs: 1.08
+      Ba: 2.27
+      La: 1.11
+      Ce: 1.58
+      Pr: 0.75
+      Nd: 1.42
+      Pm: -5.0
+      Sm: 0.95
+      Eu: 0.52
+      Gd: 1.08
+      Tb: 0.31
+      Dy: 1.1
+      Ho: 0.48
+      Er: 0.93
+      Tm: 0.11
+      Yb: 0.85
+      Lu: 0.1
+      Hf: 0.85
+      Ta: -0.15
+      W: 0.79
+      Re: 0.26
+      Os: 1.35
+      Ir: 1.32
+      Pt: 1.61
+      Au: 0.91
+      Hg: 1.17
+      Tl: 0.92
+      Pb: 1.95
+      Bi: 0.65
+      Po: -5.0
+      At: -5.0
+      Rn: -5.0
+      Fr: -5.0
+      Ra: -5.0
+      Ac: -5.0
+      Th: 0.03
+      Pa: -5.0
+      U: -0.54      
   stars: 
     sun: &sun
       photosphere: photospheres/marcs_mod/sun.mod
@@ -91,12 +185,18 @@ common:
   spectral_synthesis: &common_options
     sme: &sme_options
       hydrogen_lines: true
-    korg: &korg_options
-      hydrogen_lines: true
+      solar_abundances:
+        << : *asplund2020
+    #korg: &korg_options
+    #  hydrogen_lines: true
+    #  solar_abundances:
+    #    << : *asplund2020
     turbospectrum: &turbospectrum_options
       hydrogen_lines: true
       skip_irrelevant_transitions: true
       update_missing_data: true
+      solar_abundances:
+        << : *asplund2020
     moog: &moog_options
       window: 2 # rename to opacity_contribution
       max_transitions: 10000
@@ -107,9 +207,9 @@ common:
         - 2
       restrict_to_strongest_transitions:
         - [Ti, O]
-
-
-
+      solar_abundances:
+        << : *asplund2020
+      
 
 comparisons:
   # Continuum only
@@ -117,8 +217,8 @@ comparisons:
     << : *sun
     << : *continuum
     spectral_synthesis:
-      korg:
-        << : *korg_options
+      #korg:
+      #  << : *korg_options
       sme:
         << : *sme_options
       turbospectrum:
@@ -135,8 +235,8 @@ comparisons:
     << : *arcturus
     << : *continuum
     spectral_synthesis:
-      korg:
-        << : *korg_options
+      #korg:
+      #  << : *korg_options
       sme:
         << : *sme_options
       turbospectrum:
@@ -153,8 +253,8 @@ comparisons:
     << : *hd49933
     << : *continuum
     spectral_synthesis:
-      korg:
-        << : *korg_options
+      #korg:
+      #  << : *korg_options
       sme:
         << : *sme_options
       turbospectrum:
@@ -171,8 +271,8 @@ comparisons:
     << : *hd122563
     << : *continuum
     spectral_synthesis:
-      korg:
-        << : *korg_options
+      #korg:
+      #  << : *korg_options
       sme:
         << : *sme_options
       turbospectrum:
@@ -337,3 +437,170 @@ comparisons:
         << : *moog_options
         max_transitions: 100000
         n_chunks: 20    
+
+  # Turbospectrum without hydrogen lines
+  - name: Sol_3660_3680_no_hydrogen
+    << : *sun
+    << : *3660_3680
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: Sol_3930_3950_no_hydrogen
+    << : *sun
+    << : *3930_3950
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: Sol_5160_5190_no_hydrogen
+    << : *sun
+    << : *5160_5190
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: Sol_6540_6578_no_hydrogen
+    << : *sun
+    << : *6540_6578
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: Sol_15000_15500_no_hydrogen
+    << : *sun
+    << : *15000_15500
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: Arcturus_3660_3680_no_hydrogen
+    << : *arcturus
+    << : *3660_3680
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: Arcturus_3930_3950_no_hydrogen
+    << : *arcturus
+    << : *3930_3950
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+
+  - name: Arcturus_5160_5190_no_hydrogen
+    << : *arcturus
+    << : *5160_5190
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+    
+  - name: Arcturus_6540_6578_no_hydrogen
+    << : *arcturus
+    << : *6540_6578
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: Arcturus_15000_15500_no_hydrogen
+    << : *arcturus
+    << : *15000_15500
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+
+  # HD449933
+  - name: HD49933_3660_3680_no_hydrogen
+    << : *hd49933
+    << : *3660_3680
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: HD49933_3930_3950_no_hydrogen
+    << : *hd49933
+    << : *3930_3950
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: HD49933_5160_5190_no_hydrogen
+    << : *hd49933
+    << : *5160_5190
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+    
+  - name: HD49933_6540_6578_no_hydrogen
+    << : *hd49933
+    << : *6540_6578
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+
+  - name: HD49933_15000_15500_no_hydrogen
+    << : *hd49933
+    << : *15000_15500
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+
+  # HD122563
+  - name: HD122563_3660_3680_no_hydrogen
+    << : *hd122563
+    << : *3660_3680
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: HD122563_3930_3950_no_hydrogen
+    << : *hd122563
+    << : *3930_3950
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: HD122563_5160_5190_no_hydrogen
+    << : *hd122563
+    << : *5160_5190
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: HD122563_6540_6578_no_hydrogen
+    << : *hd122563
+    << : *6540_6578
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
+
+  - name: HD122563_15000_15500_no_hydrogen
+    << : *hd122563
+    << : *15000_15500
+    spectral_synthesis:
+      turbospectrum:
+        << : *turbospectrum_options
+        hydrogen_lines: false
